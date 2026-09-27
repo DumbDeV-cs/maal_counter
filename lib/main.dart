@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:math' as math;
 
 void main() {
   runApp(const MarriageCounterApp());
@@ -30,7 +31,7 @@ class Player {
   final String name;
   final int avatarIndex;
   final PlayerMaal maal;
-  int cumulativeScore; // Total score across all rounds
+  int cumulativeScore;
 
   Player({required this.name, required this.avatarIndex}) 
       : maal = PlayerMaal(), cumulativeScore = 0;
@@ -201,7 +202,8 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                     final isSelected = index == _selectedAvatarIndex;
                     return GestureDetector(
                       onTap: () => setState(() => _selectedAvatarIndex = index),
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
                         margin: const EdgeInsets.only(right: 12),
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
@@ -213,8 +215,8 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                         ),
                         child: CircleAvatar(
                           backgroundColor: avatar.color,
-                          radius: 22,
-                          child: Icon(avatar.icon, color: Colors.white, size: 22),
+                          radius: isSelected ? 24 : 20,
+                          child: Icon(avatar.icon, color: Colors.white, size: isSelected ? 24 : 20),
                         ),
                       ),
                     );
@@ -287,22 +289,25 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(color: Colors.white.withOpacity(0.08)),
                             ),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: avatar.color,
-                                child: Icon(avatar.icon, color: Colors.white, size: 22),
-                              ),
-                              title: Text(
-                                player.name,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                                onPressed: () {
-                                  setState(() {
-                                    _players.removeAt(index);
-                                  });
-                                },
+                            child: Material(
+                              color: Colors.transparent,
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: avatar.color,
+                                  child: Icon(avatar.icon, color: Colors.white, size: 22),
+                                ),
+                                title: Text(
+                                  player.name,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                                  onPressed: () {
+                                    setState(() {
+                                      _players.removeAt(index);
+                                    });
+                                  },
+                                ),
                               ),
                             ),
                           );
@@ -319,15 +324,17 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 ),
                 onPressed: _players.length >= 2
                     ? () {
-                        // Reset cumulative scores when starting a brand new game session
                         for (var p in _players) {
                           p.cumulativeScore = 0;
                           p.resetRound();
                         }
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => TipluSelectionScreen(players: _players),
+                          PageRouteBuilder(
+                            pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(players: _players),
+                            transitionsBuilder: (context, anim1, anim2, child) {
+                              return FadeTransition(opacity: anim1, child: child);
+                            },
                           ),
                         );
                       }
@@ -382,34 +389,42 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
               const SizedBox(height: 20),
               _buildSelector('Rank', selectedRank, ranks, (val) => setState(() => selectedRank = val!)),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.white.withOpacity(0.1), Colors.white.withOpacity(0.04)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0.8, end: 1.0),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutBack,
+                builder: (context, scale, child) {
+                  return Transform.scale(scale: scale, child: child);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.white.withOpacity(0.12), Colors.white.withOpacity(0.04)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.amberAccent.withOpacity(0.3)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.15)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text('TIPLU CARD', style: TextStyle(color: Colors.white38, letterSpacing: 2, fontSize: 12)),
-                    const SizedBox(height: 10),
-                    Text(
-                      selectedRank,
-                      style: const TextStyle(fontSize: 52, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      selectedSuit,
-                      style: TextStyle(fontSize: 26, color: _getSuitColor(selectedSuit), fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                  child: Column(
+                    children: [
+                      const Text('TIPLU CARD', style: TextStyle(color: Colors.white38, letterSpacing: 2, fontSize: 12)),
+                      const SizedBox(height: 10),
+                      Text(
+                        selectedRank,
+                        style: const TextStyle(fontSize: 52, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        selectedSuit,
+                        style: TextStyle(fontSize: 26, color: _getSuitColor(selectedSuit), fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const Spacer(),
@@ -427,11 +442,14 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                   }
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => MaalInputScreen(
+                    PageRouteBuilder(
+                      pageBuilder: (context, anim1, anim2) => MaalInputScreen(
                         players: widget.players,
                         tiplu: '$selectedRank of $selectedSuit',
                       ),
+                      transitionsBuilder: (context, anim1, anim2, child) {
+                        return FadeTransition(opacity: anim1, child: child);
+                      },
                     ),
                   );
                 },
@@ -537,55 +555,59 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.white.withOpacity(0.1)),
                       ),
-                      child: ExpansionTile(
-                        collapsedIconColor: const Color(0xFFC4B5FD),
-                        iconColor: const Color(0xFF34D399),
-                        leading: CircleAvatar(
-                          backgroundColor: avatar.color,
-                          child: Icon(avatar.icon, color: Colors.white, size: 20),
-                        ),
-                        title: Text(
-                          player.name,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF34D399).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF34D399).withOpacity(0.4)),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: ExpansionTile(
+                          collapsedIconColor: const Color(0xFFC4B5FD),
+                          iconColor: const Color(0xFF34D399),
+                          leading: CircleAvatar(
+                            backgroundColor: avatar.color,
+                            child: Icon(avatar.icon, color: Colors.white, size: 20),
                           ),
-                          child: Text(
-                            '${maal.totalPoints} pts',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
+                          title: Text(
+                            player.name,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
-                        ),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Wrap(
-                              spacing: 8.0,
-                              runSpacing: 8.0,
-                              children: [
-                                _buildChoiceChip('Marriage (10pts)', maal.hasMarriage, (val) {
-                                  setState(() => maal.hasMarriage = val);
-                                }),
-                                _buildChoiceChip('Tunnel/3-Pattia (5pts)', maal.hasTunnel, (val) {
-                                  setState(() => maal.hasTunnel = val);
-                                }),
-                                _buildChoiceChip('Tiplu (3pts)', maal.hasTiplu, (val) {
-                                  setState(() => maal.hasTiplu = val);
-                                }),
-                                _buildChoiceChip('Alte (3pts)', maal.hasAlte, (val) {
-                                  setState(() => maal.hasAlte = val);
-                                }),
-                                _buildChoiceChip('Jhal (3pts)', maal.hasJhal, (val) {
-                                  setState(() => maal.hasJhal = val);
-                                }),
-                              ],
+                          trailing: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF34D399).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF34D399).withOpacity(0.4)),
+                            ),
+                            child: Text(
+                              '${maal.totalPoints} pts',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
                             ),
                           ),
-                        ],
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Wrap(
+                                spacing: 8.0,
+                                runSpacing: 8.0,
+                                children: [
+                                  _buildChoiceChip('Marriage (10pts)', maal.hasMarriage, (val) {
+                                    setState(() => maal.hasMarriage = val);
+                                  }),
+                                  _buildChoiceChip('Tunnel/3-Pattia (5pts)', maal.hasTunnel, (val) {
+                                    setState(() => maal.hasTunnel = val);
+                                  }),
+                                  _buildChoiceChip('Tiplu (3pts)', maal.hasTiplu, (val) {
+                                    setState(() => maal.hasTiplu = val);
+                                  }),
+                                  _buildChoiceChip('Alte (3pts)', maal.hasAlte, (val) {
+                                    setState(() => maal.hasAlte = val);
+                                  }),
+                                  _buildChoiceChip('Jhal (3pts)', maal.hasJhal, (val) {
+                                    setState(() => maal.hasJhal = val);
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -600,17 +622,19 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                   elevation: 8,
                 ),
                 onPressed: () {
-                  // Add this round's points into each player's cumulative score
                   for (var p in widget.players) {
                     p.cumulativeScore += p.maal.totalPoints;
                   }
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => ScoreSummaryScreen(
+                    PageRouteBuilder(
+                      pageBuilder: (context, anim1, anim2) => ScoreSummaryScreen(
                         players: widget.players,
                         tiplu: widget.tiplu,
                       ),
+                      transitionsBuilder: (context, anim1, anim2, child) {
+                        return FadeTransition(opacity: anim1, child: child);
+                      },
                     ),
                   );
                 },
@@ -645,15 +669,37 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
   }
 }
 
-// 4. Score Summary Screen (Multi-Round Leaderboard)
-class ScoreSummaryScreen extends StatelessWidget {
+// 4. Score Summary Screen with Custom Victory Celebration Animation
+class ScoreSummaryScreen extends StatefulWidget {
   final List<Player> players;
   final String tiplu;
 
   const ScoreSummaryScreen({super.key, required this.players, required this.tiplu});
 
+  @override
+  State<ScoreSummaryScreen> createState() => _ScoreSummaryScreenState();
+}
+
+class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
   List<Player> _getSortedPlayers() {
-    List<Player> list = List.from(players);
+    List<Player> list = List.from(widget.players);
     list.sort((a, b) => b.cumulativeScore.compareTo(a.cumulativeScore));
     return list;
   }
@@ -667,144 +713,223 @@ class ScoreSummaryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('STANDINGS')),
       body: GradientBackground(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Leader Card
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: Colors.white.withOpacity(0.25),
-                      child: CircleAvatar(
-                        radius: 28,
-                        backgroundColor: leaderAvatar.color,
-                        child: Icon(leaderAvatar.icon, color: Colors.white, size: 32),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      leader.name,
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text('OVERALL LEADER', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${leader.cumulativeScore} Total Points',
-                      style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 25),
-              const Text('CUMULATIVE LEADERBOARD', style: TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 1.2)),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: sortedPlayers.length,
-                  itemBuilder: (context, index) {
-                    final player = sortedPlayers[index];
-                    final avatar = availableAvatars[player.avatarIndex];
-                    final isLeader = index == 0;
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(isLeader ? 0.1 : 0.05),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: isLeader ? Colors.amber.withOpacity(0.4) : Colors.white.withOpacity(0.08)),
-                      ),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: avatar.color,
-                          child: Icon(avatar.icon, color: Colors.white, size: 20),
-                        ),
-                        title: Text(
-                          player.name,
-                          style: TextStyle(
-                            color: isLeader ? Colors.amberAccent : Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        trailing: Text(
-                          '${player.cumulativeScore} pts',
-                          style: TextStyle(
-                            fontSize: 20,
-                            color: isLeader ? Colors.amberAccent : const Color(0xFF34D399),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
+        child: Stack(
+          children: [
+            // Victory celebration particle overlay
+            AnimatedBuilder(
+              animation: _confettiController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: VictoryConfettiPainter(_confettiController.value),
+                  size: MediaQuery.of(context).size,
+                );
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8B5CF6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 8,
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0.8, end: 1.0),
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.elasticOut,
+                    builder: (context, scale, child) {
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 25, offset: const Offset(0, 10)),
+                        ],
                       ),
-                      onPressed: () {
-                        // Go back to Tiplu selection to play the next hand with the same players
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TipluSelectionScreen(players: players),
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 32,
+                            backgroundColor: Colors.white.withOpacity(0.25),
+                            child: CircleAvatar(
+                              radius: 28,
+                              backgroundColor: leaderAvatar.color,
+                              child: Icon(leaderAvatar.icon, color: Colors.white, size: 32),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            leader.name,
+                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text('ROUND LEADER', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${leader.cumulativeScore} Total Points',
+                            style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+                  const Text('CUMULATIVE LEADERBOARD', style: TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 1.2)),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: sortedPlayers.length,
+                      itemBuilder: (context, index) {
+                        final player = sortedPlayers[index];
+                        final avatar = availableAvatars[player.avatarIndex];
+                        final isLeader = index == 0;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(isLeader ? 0.1 : 0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: isLeader ? Colors.amber.withOpacity(0.4) : Colors.white.withOpacity(0.08)),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: avatar.color,
+                                child: Icon(avatar.icon, color: Colors.white, size: 20),
+                              ),
+                              title: Text(
+                                player.name,
+                                style: TextStyle(
+                                  color: isLeader ? Colors.amberAccent : Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              trailing: Text(
+                                '${player.cumulativeScore} pts',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  color: isLeader ? Colors.amberAccent : const Color(0xFF34D399),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ),
                         );
                       },
-                      child: const Text('NEXT ROUND', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.1),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8B5CF6),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 8,
+                          ),
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              PageRouteBuilder(
+                                pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(players: widget.players),
+                                transitionsBuilder: (context, anim1, anim2, child) {
+                                  return FadeTransition(opacity: anim1, child: child);
+                                },
+                              ),
+                            );
+                          },
+                          child: const Text('NEXT ROUND', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
                         ),
-                        elevation: 0,
                       ),
-                      onPressed: () {
-                        Navigator.popUntil(context, (route) => route.isFirst);
-                      },
-                      child: const Text('NEW GAME', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            Navigator.popUntil(context, (route) => route.isFirst);
+                          },
+                          child: const Text('NEW GAME', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+// Custom Painter for Particle/Confetti Burst Celebration Effect
+class VictoryConfettiPainter extends CustomPainter {
+  final double progress;
+  VictoryConfettiPainter(this.progress);
+
+  final List<_Particle> particles = List.generate(35, (index) {
+    final random = math.Random(index);
+    return _Particle(
+      x: random.nextDouble(),
+      y: random.nextDouble() * 0.4 + 0.1,
+      color: [Colors.amber, Colors.pinkAccent, Colors.cyanAccent, Colors.greenAccent, Colors.purpleAccent][random.nextInt(5)],
+      size: random.nextDouble() * 6 + 4,
+      speedX: (random.nextDouble() - 0.5) * 1.5,
+      speedY: random.nextDouble() * -1.2 - 0.5,
+    );
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var particle in particles) {
+      final paint = Paint()
+        ..color = particle.color.withOpacity((1.0 - progress).clamp(0.0, 1.0))
+        ..style = PaintingStyle.fill;
+
+      final currentX = (particle.x * size.width + particle.speedX * progress * 150) % size.width;
+      final currentY = particle.y * size.height + particle.speedY * progress * 250 + (progress * progress * 100);
+
+      canvas.drawCircle(Offset(currentX, currentY), particle.size, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant VictoryConfettiPainter oldDelegate) => oldDelegate.progress != progress;
+}
+
+class _Particle {
+  final double x;
+  final double y;
+  final Color color;
+  final double size;
+  final double speedX;
+  final double speedY;
+
+  _Particle({
+    required this.x,
+    required this.y,
+    required this.color,
+    required this.size,
+    required this.speedX,
+    required this.speedY,
+  });
 }
