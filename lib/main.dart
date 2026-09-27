@@ -35,6 +35,17 @@ class MarriageCounterApp extends StatelessWidget {
   }
 }
 
+// Model for Player Maal Breakdown
+class PlayerMaal {
+  int marriage = 0; // 10 pts
+  int tunnel = 0;   // 5 pts
+  int tiplu = 0;    // 3 pts
+  int alte = 0;     // 3 pts
+  int jhal = 0;     // 3 pts
+
+  int get totalPoints => (marriage * 10) + (tunnel * 5) + (tiplu * 3) + (alte * 3) + (jhal * 3);
+}
+
 // Gorgeous Gradient Background Wrapper
 class GradientBackground extends StatelessWidget {
   final Widget child;
@@ -56,7 +67,6 @@ class GradientBackground extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Subtle glowing orb top-right
           Positioned(
             top: -50,
             right: -50,
@@ -69,7 +79,6 @@ class GradientBackground extends StatelessWidget {
               ),
             ),
           ),
-          // Subtle glowing orb bottom-left
           Positioned(
             bottom: -50,
             left: -50,
@@ -129,7 +138,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 style: TextStyle(fontSize: 15, color: Colors.white70, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 12),
-              // Input Field
               TextField(
                 controller: _playerController,
                 maxLength: 12,
@@ -161,7 +169,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 onSubmitted: (_) => _addPlayer(),
               ),
               const SizedBox(height: 20),
-              // Player List
               Expanded(
                 child: _players.isEmpty
                     ? const Center(
@@ -213,7 +220,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                         },
                       ),
               ),
-              // Next Button
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8B5CF6),
@@ -283,7 +289,6 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
               const SizedBox(height: 20),
               _buildSelector('Rank', selectedRank, ranks, (val) => setState(() => selectedRank = val!)),
               const Spacer(),
-              // Gorgeous Preview Card
               Container(
                 padding: const EdgeInsets.all(30),
                 decoration: BoxDecoration(
@@ -334,7 +339,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                     ),
                   );
                 },
-                child: const Text('ENTER MAAL POINTS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                child: const Text('COUNT MAAL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
               ),
             ],
           ),
@@ -375,7 +380,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
   }
 }
 
-// 3. Maal Input Screen
+// 3. Maal Input Screen with Full Categories
 class MaalInputScreen extends StatefulWidget {
   final List<String> players;
   final String tiplu;
@@ -387,28 +392,27 @@ class MaalInputScreen extends StatefulWidget {
 }
 
 class _MaalInputScreenState extends State<MaalInputScreen> {
-  final Map<String, int> _playerPoints = {};
+  final Map<String, PlayerMaal> _playerMaalMap = {};
 
   @override
   void initState() {
     super.initState();
     for (var player in widget.players) {
-      _playerPoints[player] = 0;
+      _playerMaalMap[player] = PlayerMaal();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('COUNT MAAL')),
+      appBar: AppBar(title: const Text('CALCULATE MAAL')),
       body: GradientBackground(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Tiplu banner
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.amber.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
@@ -421,65 +425,63 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                     const SizedBox(width: 8),
                     Text(
                       'TIPLU: ${widget.tiplu}',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amberAccent),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.amberAccent),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 12),
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Adjust points for each player:', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                child: Text('Enter Maal for each player:', style: TextStyle(color: Colors.white70, fontSize: 14)),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Expanded(
                 child: ListView.builder(
                   itemCount: widget.players.length,
                   itemBuilder: (context, index) {
                     String player = widget.players[index];
+                    PlayerMaal maal = _playerMaalMap[player]!;
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.06),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
                       ),
-                      child: ListTile(
+                      child: ExpansionTile(
+                        collapsedIconColor: Color(0xFFC4B5FD),
+                        iconColor: Color(0xFF34D399),
                         title: Text(
                           player,
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, color: Colors.white54),
-                              onPressed: () {
-                                setState(() {
-                                  if ((_playerPoints[player] ?? 0) > 0) {
-                                    _playerPoints[player] = (_playerPoints[player] ?? 0) - 1;
-                                  }
-                                });
-                              },
-                            ),
-                            SizedBox(
-                              width: 45,
-                              child: Text(
-                                '${_playerPoints[player]}',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle, color: Color(0xFF34D399)),
-                              onPressed: () {
-                                setState(() {
-                                  _playerPoints[player] = (_playerPoints[player] ?? 0) + 1;
-                                });
-                              },
-                            ),
-                          ],
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF34D399).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF34D399).withOpacity(0.4)),
+                          ),
+                          child: Text(
+                            '${maal.totalPoints} pts',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
+                          ),
                         ),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              children: [
+                                _buildMaalRow('Marriage (10 pts)', maal.marriage, (val) => setState(() => maal.marriage = val)),
+                                _buildMaalRow('Tunnel / 3-Pattia (5 pts)', maal.tunnel, (val) => setState(() => maal.tunnel = val)),
+                                _buildMaalRow('Tiplu (3 pts)', maal.tiplu, (val) => setState(() => maal.tiplu = val)),
+                                _buildMaalRow('Alter / Alternative (3 pts)', maal.alte, (val) => setState(() => maal.alte = val)),
+                                _buildMaalRow('Jhal (3 pts)', maal.jhal, (val) => setState(() => maal.jhal = val)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -494,11 +496,17 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                   elevation: 8,
                 ),
                 onPressed: () {
+                  // Convert map to simple points for the summary screen
+                  Map<String, int> finalPoints = {};
+                  _playerMaalMap.forEach((key, value) {
+                    finalPoints[key] = value.totalPoints;
+                  });
+
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => ScoreSummaryScreen(
-                        playerPoints: _playerPoints,
+                        playerPoints: finalPoints,
                         tiplu: widget.tiplu,
                       ),
                     ),
@@ -509,6 +517,38 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMaalRow(String label, int count, ValueChanged<int> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline, color: Colors.white54, size: 20),
+                onPressed: count > 0 ? () => onChanged(count - 1) : null,
+              ),
+              SizedBox(
+                width: 30,
+                child: Text(
+                  '$count',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: Color(0xFF34D399), size: 20),
+                onPressed: () => onChanged(count + 1),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -540,7 +580,6 @@ class ScoreSummaryScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Winner Card
               Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
@@ -619,7 +658,7 @@ class ScoreSummaryScreen extends StatelessWidget {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981), // Vibrant Green
+                  backgroundColor: const Color(0xFF10B981),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
