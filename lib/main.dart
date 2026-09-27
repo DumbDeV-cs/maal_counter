@@ -137,7 +137,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: 'Enter player name...',
-                  hintStyle: TextStyle(color: Colors.white38),
+                  hintStyle: const TextStyle(color: Colors.white38),
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.07),
                   prefixIcon: const Icon(Icons.person_outline, color: Color(0xFFC4B5FD)),
@@ -164,13 +164,14 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
               // Player List
               Expanded(
                 child: _players.isEmpty
-                    ? Center(
+                    ? const Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.groups_outlined, size: 64, color: Colors.white24),
-                            const SizedBox(height: 10),
-                            const Text('No players added yet\nTap + to build the table', 
+                            SizedBox(height: 10),
+                            Text(
+                              'No players added yet\nTap + to build the table',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.white38, fontSize: 16),
                             ),
@@ -592,7 +593,7 @@ class ScoreSummaryScreen extends StatelessWidget {
                           backgroundColor: isWinner ? Colors.amber.withOpacity(0.2) : Colors.white.withOpacity(0.1),
                           child: Icon(
                             isWinner ? Icons.military_tech : Icons.person,
-                            color: isWinner ? Colors.amberAccent : Colors.white7Div ?? Colors.white70,
+                            color: isWinner ? Colors.amberAccent : Colors.white70,
                           ),
                         ),
                         title: Text(
