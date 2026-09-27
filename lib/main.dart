@@ -35,15 +35,22 @@ class MarriageCounterApp extends StatelessWidget {
   }
 }
 
-// Model for Player Maal Breakdown
+// Model for Player Maal Options
 class PlayerMaal {
-  int marriage = 0; // 10 pts
-  int tunnel = 0;   // 5 pts
-  int tiplu = 0;    // 3 pts
-  int alte = 0;     // 3 pts
-  int jhal = 0;     // 3 pts
+  bool hasMarriage = false; // 10 pts
+  bool hasTunnel = false;   // 5 pts
+  bool hasTiplu = false;    // 3 pts
+  bool hasAlte = false;     // 3 pts
+  bool hasJhal = false;     // 3 pts
+  int extraPoints = 0;      // For any extra standard points
 
-  int get totalPoints => (marriage * 10) + (tunnel * 5) + (tiplu * 3) + (alte * 3) + (jhal * 3);
+  int get totalPoints => 
+    (hasMarriage ? 10 : 0) + 
+    (hasTunnel ? 5 : 0) + 
+    (hasTiplu ? 3 : 0) + 
+    (hasAlte ? 3 : 0) + 
+    (hasJhal ? 3 : 0) + 
+    extraPoints;
 }
 
 // Gorgeous Gradient Background Wrapper
@@ -339,7 +346,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                     ),
                   );
                 },
-                child: const Text('COUNT MAAL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                child: const Text('CHOOSE MAAL OPTIONS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
               ),
             ],
           ),
@@ -380,7 +387,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
   }
 }
 
-// 3. Maal Input Screen with Full Categories
+// 3. Maal Input Screen with Interactive Choice Chips
 class MaalInputScreen extends StatefulWidget {
   final List<String> players;
   final String tiplu;
@@ -405,7 +412,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('CALCULATE MAAL')),
+      appBar: AppBar(title: const Text('CHOOSE PLAYER MAAL')),
       body: GradientBackground(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -433,7 +440,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
               const SizedBox(height: 12),
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Enter Maal for each player:', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                child: Text('Select what each player holds:', style: TextStyle(color: Colors.white70, fontSize: 14)),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -450,8 +457,8 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                         border: Border.all(color: Colors.white.withOpacity(0.1)),
                       ),
                       child: ExpansionTile(
-                        collapsedIconColor: Color(0xFFC4B5FD),
-                        iconColor: Color(0xFF34D399),
+                        collapsedIconColor: const Color(0xFFC4B5FD),
+                        iconColor: const Color(0xFF34D399),
                         title: Text(
                           player,
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
@@ -471,13 +478,25 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(12.0),
-                            child: Column(
+                            child: Wrap(
+                              spacing: 8.0,
+                              runSpacing: 8.0,
                               children: [
-                                _buildMaalRow('Marriage (10 pts)', maal.marriage, (val) => setState(() => maal.marriage = val)),
-                                _buildMaalRow('Tunnel / 3-Pattia (5 pts)', maal.tunnel, (val) => setState(() => maal.tunnel = val)),
-                                _buildMaalRow('Tiplu (3 pts)', maal.tiplu, (val) => setState(() => maal.tiplu = val)),
-                                _buildMaalRow('Alter / Alternative (3 pts)', maal.alte, (val) => setState(() => maal.alte = val)),
-                                _buildMaalRow('Jhal (3 pts)', maal.jhal, (val) => setState(() => maal.jhal = val)),
+                                _buildChoiceChip('Marriage (10pts)', maal.hasMarriage, (val) {
+                                  setState(() => maal.hasMarriage = val);
+                                }),
+                                _buildChoiceChip('Tunnel/3-Pattia (5pts)', maal.hasTunnel, (val) {
+                                  setState(() => maal.hasTunnel = val);
+                                }),
+                                _buildChoiceChip('Tiplu (3pts)', maal.hasTiplu, (val) {
+                                  setState(() => maal.hasTiplu = val);
+                                }),
+                                _buildChoiceChip('Alte (3pts)', maal.hasAlte, (val) {
+                                  setState(() => maal.hasAlte = val);
+                                }),
+                                _buildChoiceChip('Jhal (3pts)', maal.hasJhal, (val) {
+                                  setState(() => maal.hasJhal = val);
+                                }),
                               ],
                             ),
                           ),
@@ -496,7 +515,6 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                   elevation: 8,
                 ),
                 onPressed: () {
-                  // Convert map to simple points for the summary screen
                   Map<String, int> finalPoints = {};
                   _playerMaalMap.forEach((key, value) {
                     finalPoints[key] = value.totalPoints;
@@ -521,34 +539,23 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
     );
   }
 
-  Widget _buildMaalRow(String label, int count, ValueChanged<int> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.remove_circle_outline, color: Colors.white54, size: 20),
-                onPressed: count > 0 ? () => onChanged(count - 1) : null,
-              ),
-              SizedBox(
-                width: 30,
-                child: Text(
-                  '$count',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add_circle, color: Color(0xFF34D399), size: 20),
-                onPressed: () => onChanged(count + 1),
-              ),
-            ],
-          ),
-        ],
+  Widget _buildChoiceChip(String label, bool isSelected, ValueChanged<bool> onSelected) {
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: onSelected,
+      selectedColor: const Color(0xFF8B5CF6),
+      checkmarkColor: Colors.white,
+      backgroundColor: Colors.white.withOpacity(0.08),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.white70,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isSelected ? const Color(0xFFC4B5FD) : Colors.white.withOpacity(0.15),
+        ),
       ),
     );
   }
