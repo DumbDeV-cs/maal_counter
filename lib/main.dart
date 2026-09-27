@@ -25,13 +25,23 @@ const List<AvatarData> availableAvatars = [
   AvatarData(icon: Icons.sports_esports, color: Color(0xFF6366F1), name: 'Gamer'),
 ];
 
-// Player Model
+// Player Model with Cumulative Score Support
 class Player {
   final String name;
   final int avatarIndex;
   final PlayerMaal maal;
+  int cumulativeScore; // Total score across all rounds
 
-  Player({required this.name, required this.avatarIndex}) : maal = PlayerMaal();
+  Player({required this.name, required this.avatarIndex}) 
+      : maal = PlayerMaal(), cumulativeScore = 0;
+
+  void resetRound() {
+    maal.hasMarriage = false;
+    maal.hasTunnel = false;
+    maal.hasTiplu = false;
+    maal.hasAlte = false;
+    maal.hasJhal = false;
+  }
 }
 
 // Model for Player Maal Options
@@ -159,7 +169,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           ),
         );
         _playerController.clear();
-        // Cycle to next avatar automatically for convenience
         _selectedAvatarIndex = (_selectedAvatarIndex + 1) % availableAvatars.length;
       });
     }
@@ -182,7 +191,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 style: TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 10),
-              // Avatar Selection Bar
               SizedBox(
                 height: 60,
                 child: ListView.builder(
@@ -214,7 +222,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Input Field
               TextField(
                 controller: _playerController,
                 maxLength: 12,
@@ -252,7 +259,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 onSubmitted: (_) => _addPlayer(),
               ),
               const SizedBox(height: 20),
-              // Players List
               Expanded(
                 child: _players.isEmpty
                     ? const Center(
@@ -313,6 +319,11 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 ),
                 onPressed: _players.length >= 2
                     ? () {
+                        // Reset cumulative scores when starting a brand new game session
+                        for (var p in _players) {
+                          p.cumulativeScore = 0;
+                          p.resetRound();
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -411,6 +422,9 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                   elevation: 8,
                 ),
                 onPressed: () {
+                  for (var p in widget.players) {
+                    p.resetRound();
+                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -586,6 +600,10 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                   elevation: 8,
                 ),
                 onPressed: () {
+                  // Add this round's points into each player's cumulative score
+                  for (var p in widget.players) {
+                    p.cumulativeScore += p.maal.totalPoints;
+                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -627,7 +645,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
   }
 }
 
-// 4. Score Summary Screen
+// 4. Score Summary Screen (Multi-Round Leaderboard)
 class ScoreSummaryScreen extends StatelessWidget {
   final List<Player> players;
   final String tiplu;
@@ -636,25 +654,25 @@ class ScoreSummaryScreen extends StatelessWidget {
 
   List<Player> _getSortedPlayers() {
     List<Player> list = List.from(players);
-    list.sort((a, b) => b.maal.totalPoints.compareTo(a.maal.totalPoints));
+    list.sort((a, b) => b.cumulativeScore.compareTo(a.cumulativeScore));
     return list;
   }
 
   @override
   Widget build(BuildContext context) {
     final sortedPlayers = _getSortedPlayers();
-    final winner = sortedPlayers.first;
-    final winnerAvatar = availableAvatars[winner.avatarIndex];
+    final leader = sortedPlayers.first;
+    final leaderAvatar = availableAvatars[leader.avatarIndex];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('GAME OVER')),
+      appBar: AppBar(title: const Text('STANDINGS')),
       body: GradientBackground(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Winner Card
+              // Leader Card
               Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
@@ -675,27 +693,27 @@ class ScoreSummaryScreen extends StatelessWidget {
                       backgroundColor: Colors.white.withOpacity(0.25),
                       child: CircleAvatar(
                         radius: 28,
-                        backgroundColor: winnerAvatar.color,
-                        child: Icon(winnerAvatar.icon, color: Colors.white, size: 32),
+                        backgroundColor: leaderAvatar.color,
+                        child: Icon(leaderAvatar.icon, color: Colors.white, size: 32),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      winner.name,
+                      leader.name,
                       style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     const SizedBox(height: 4),
-                    const Text('WINS THE ROUND!', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                    const Text('OVERALL LEADER', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Text(
-                      '${winner.maal.totalPoints} Points',
+                      '${leader.cumulativeScore} Total Points',
                       style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 25),
-              const Text('FINAL STANDINGS', style: TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 1.2)),
+              const Text('CUMULATIVE LEADERBOARD', style: TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 1.2)),
               const SizedBox(height: 10),
               Expanded(
                 child: ListView.builder(
@@ -703,14 +721,14 @@ class ScoreSummaryScreen extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final player = sortedPlayers[index];
                     final avatar = availableAvatars[player.avatarIndex];
-                    final isWinner = index == 0;
+                    final isLeader = index == 0;
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(isWinner ? 0.1 : 0.05),
+                        color: Colors.white.withOpacity(isLeader ? 0.1 : 0.05),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: isWinner ? Colors.amber.withOpacity(0.4) : Colors.white.withOpacity(0.08)),
+                        border: Border.all(color: isLeader ? Colors.amber.withOpacity(0.4) : Colors.white.withOpacity(0.08)),
                       ),
                       child: ListTile(
                         leading: CircleAvatar(
@@ -720,16 +738,16 @@ class ScoreSummaryScreen extends StatelessWidget {
                         title: Text(
                           player.name,
                           style: TextStyle(
-                            color: isWinner ? Colors.amberAccent : Colors.white,
+                            color: isLeader ? Colors.amberAccent : Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),
                         ),
                         trailing: Text(
-                          '${player.maal.totalPoints} pts',
+                          '${player.cumulativeScore} pts',
                           style: TextStyle(
                             fontSize: 20,
-                            color: isWinner ? Colors.amberAccent : const Color(0xFF34D399),
+                            color: isLeader ? Colors.amberAccent : const Color(0xFF34D399),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -738,18 +756,50 @@ class ScoreSummaryScreen extends StatelessWidget {
                   },
                 ),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 8,
-                ),
-                onPressed: () {
-                  Navigator.popUntil(context, (route) => route.isFirst);
-                },
-                child: const Text('START NEW ROUND', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8B5CF6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 8,
+                      ),
+                      onPressed: () {
+                        // Go back to Tiplu selection to play the next hand with the same players
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TipluSelectionScreen(players: players),
+                          ),
+                        );
+                      },
+                      child: const Text('NEXT ROUND', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        Navigator.popUntil(context, (route) => route.isFirst);
+                      },
+                      child: const Text('NEW GAME', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
