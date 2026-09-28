@@ -225,7 +225,7 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-// 1. Game Setup Screen
+// 1. Game Setup Screen with Developer Branding
 class GameSetupScreen extends StatefulWidget {
   const GameSetupScreen({super.key});
 
@@ -248,7 +248,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   void _checkExistingSession() async {
     GameSession? existingSession = await GameSession.loadFromStorage();
     if (existingSession != null && existingSession.players.isNotEmpty && mounted) {
-      // Prompt user or automatically resume
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -286,13 +285,81 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     final activeAvatar = availableAvatars[_selectedAvatarIndex];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('MARRIAGE TABLE')),
+      appBar: AppBar(
+        title: const Text('MARRIAGE TABLE'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.code, color: Color(0xFF34D399)),
+            tooltip: 'Developer Info',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E1B4B),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.terminal, color: Color(0xFF8B5CF6)),
+                      SizedBox(width: 10),
+                      Text('Developer', style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                  content: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('App: Marriage Taas Counter', style: TextStyle(color: Colors.white70, fontSize: 15)),
+                      SizedBox(height: 8),
+                      Text('Developer: Prabesh Dhital', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      SizedBox(height: 4),
+                      Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 14)),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close', style: TextStyle(color: Color(0xFF8B5CF6))),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: GradientBackground(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Developer Badge Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Color(0xFF8B5CF6),
+                      child: Icon(Icons.person, size: 16, color: Colors.white),
+                    ),
+                    SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('PRABESH DHITAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 11)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               const Text(
                 'Select Profile Icon:',
                 style: TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
