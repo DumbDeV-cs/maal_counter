@@ -28,6 +28,41 @@ const List<AvatarData> availableAvatars = [
   AvatarData(icon: Icons.sports_esports, color: Color(0xFF6366F1), name: 'Gamer'),
 ];
 
+// House Rules Configuration Model
+class HouseRules {
+  int marriagePoints;
+  int tunnelPoints;
+  int tipluPoints;
+  int altePoints;
+  int jhalPoints;
+
+  HouseRules({
+    this.marriagePoints = 10,
+    this.tunnelPoints = 5,
+    this.tipluPoints = 3,
+    this.altePoints = 3,
+    this.jhalPoints = 3,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'marriage': marriagePoints,
+    'tunnel': tunnelPoints,
+    'tiplu': tipluPoints,
+    'alte': altePoints,
+    'jhal': jhalPoints,
+  };
+
+  factory HouseRules.fromJson(Map<String, dynamic> json) {
+    return HouseRules(
+      marriagePoints: json['marriage'] ?? 10,
+      tunnelPoints: json['tunnel'] ?? 5,
+      tipluPoints: json['tiplu'] ?? 3,
+      altePoints: json['alte'] ?? 3,
+      jhalPoints: json['jhal'] ?? 3,
+    );
+  }
+}
+
 // Player Model
 class Player {
   final String name;
@@ -63,43 +98,51 @@ class Player {
 
 // Model for Player Maal Options
 class PlayerMaal {
-  bool hasMarriage = false; // 10 pts
-  bool hasTunnel = false;   // 5 pts
-  bool hasTiplu = false;    // 3 pts
-  bool hasAlte = false;     // 3 pts
-  bool hasJhal = false;     // 3 pts
+  bool hasMarriage = false; 
+  bool hasTunnel = false;   
+  bool hasTiplu = false;    
+  bool hasAlte = false;     
+  bool hasJhal = false;     
 
-  int get totalPoints => 
-    (hasMarriage ? 10 : 0) + 
-    (hasTunnel ? 5 : 0) + 
-    (hasTiplu ? 3 : 0) + 
-    (hasAlte ? 3 : 0) + 
-    (hasJhal ? 3 : 0);
+  int getTotalPoints(HouseRules rules) => 
+    (hasMarriage ? rules.marriagePoints : 0) + 
+    (hasTunnel ? rules.tunnelPoints : 0) + 
+    (hasTiplu ? rules.tipluPoints : 0) + 
+    (hasAlte ? rules.altePoints : 0) + 
+    (hasJhal ? rules.jhalPoints : 0);
 }
 
 // Centralized Game Session Controller with SharedPreferences Storage
 class GameSession {
   final List<Player> players;
+  final HouseRules houseRules;
   final List<Map<String, int>> roundHistory = [];
 
-  GameSession({required this.players});
+  GameSession({required this.players, HouseRules? houseRules})
+      : houseRules = houseRules ?? HouseRules();
 
   Future<void> saveToStorage() async {
     final prefs = await SharedPreferences.getInstance();
     prefs.setString('saved_players', jsonEncode(players.map((p) => p.toJson()).toList()));
     prefs.setString('saved_history', jsonEncode(roundHistory));
+    prefs.setString('saved_rules', jsonEncode(houseRules.toJson()));
   }
 
   static Future<GameSession?> loadFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
     final playersStr = prefs.getString('saved_players');
     final historyStr = prefs.getString('saved_history');
+    final rulesStr = prefs.getString('saved_rules');
 
     if (playersStr != null) {
       List decodedPlayers = jsonDecode(playersStr);
       List<Player> players = decodedPlayers.map((item) => Player.fromJson(item)).toList();
       
-      GameSession session = GameSession(players: players);
+      HouseRules rules = rulesStr != null 
+          ? HouseRules.fromJson(jsonDecode(rulesStr)) 
+          : HouseRules();
+
+      GameSession session = GameSession(players: players, houseRules: rules);
 
       if (historyStr != null) {
         List decodedHistory = jsonDecode(historyStr);
@@ -136,6 +179,7 @@ class GameSession {
     final prefs = await SharedPreferences.getInstance();
     prefs.remove('saved_players');
     prefs.remove('saved_history');
+    prefs.remove('saved_rules');
   }
 }
 
@@ -225,7 +269,7 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-// 1. Game Setup Screen with Developer Branding
+// 1. Game Setup Screen with Developer Branding & House Rules
 class GameSetupScreen extends StatefulWidget {
   const GameSetupScreen({super.key});
 
@@ -236,6 +280,7 @@ class GameSetupScreen extends StatefulWidget {
 class _GameSetupScreenState extends State<GameSetupScreen> {
   final TextEditingController _playerController = TextEditingController();
   final List<Player> _players = [];
+  final HouseRules _houseRules = HouseRules();
   int _selectedAvatarIndex = 0;
   bool _isLoading = true;
 
@@ -274,6 +319,89 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     }
   }
 
+  void _showHouseRulesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E1B4B),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.rule, color: Color(0xFF34D399)),
+                  SizedBox(width: 10),
+                  Text('House Rules', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Customize point values for this match:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(height: 15),
+                    _buildRuleRow('Marriage Points', _houseRules.marriagePoints, (val) {
+                      setDialogState(() => _houseRules.marriagePoints = val);
+                      setState(() {});
+                    }),
+                    _buildRuleRow('Tunnel / 3-Pattia', _houseRules.tunnelPoints, (val) {
+                      setDialogState(() => _houseRules.tunnelPoints = val);
+                      setState(() {});
+                    }),
+                    _buildRuleRow('Tiplu Points', _houseRules.tipluPoints, (val) {
+                      setDialogState(() => _houseRules.tipluPoints = val);
+                      setState(() {});
+                    }),
+                    _buildRuleRow('Alte Points', _houseRules.altePoints, (val) {
+                      setDialogState(() => _houseRules.altePoints = val);
+                      setState(() {});
+                    }),
+                    _buildRuleRow('Jhal Points', _houseRules.jhalPoints, (val) {
+                      setDialogState(() => _houseRules.jhalPoints = val);
+                      setState(() {});
+                    }),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Done', style: TextStyle(color: Color(0xFF8B5CF6), fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRuleRow(String label, int currentVal, ValueChanged<int> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.between,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
+                onPressed: currentVal > 0 ? () => onChanged(currentVal - 1) : null,
+              ),
+              Text('$currentVal', style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 16)),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, color: Color(0xFF34D399), size: 20),
+                onPressed: () => onChanged(currentVal + 1),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -289,7 +417,12 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         title: const Text('MARRIAGE TABLE'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.code, color: Color(0xFF34D399)),
+            icon: const Icon(Icons.rule, color: Color(0xFF34D399)),
+            tooltip: 'Configure House Rules',
+            onPressed: _showHouseRulesDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.code, color: Color(0xFFC4B5FD)),
             tooltip: 'Developer Info',
             onPressed: () {
               showDialog(
@@ -497,17 +630,19 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 ),
                 onPressed: _players.length >= 2
                     ? () async {
-                        final gameSession = GameSession(players: _players);
+                        final gameSession = GameSession(players: _players, houseRules: _houseRules);
                         await gameSession.saveToStorage();
-                        Navigator.push(
-                          context,
-                          PageRouteBuilder(
-                            pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: gameSession),
-                            transitionsBuilder: (context, anim1, anim2, child) {
-                              return FadeTransition(opacity: anim1, child: child);
-                            },
-                          ),
-                        );
+                        if (context.mounted) {
+                          Navigator.push(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: gameSession),
+                              transitionsBuilder: (context, anim1, anim2, child) {
+                                return FadeTransition(opacity: anim1, child: child);
+                              },
+                            ),
+                          );
+                        }
                       }
                     : null,
                 child: const Text('SELECT TIPLU', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
@@ -665,7 +800,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
   }
 }
 
-// 3. Maal Input Screen
+// 3. Maal Input Screen (Powered by House Rules)
 class MaalInputScreen extends StatefulWidget {
   final GameSession gameSession;
   final String tiplu;
@@ -680,6 +815,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
   @override
   Widget build(BuildContext context) {
     final players = widget.gameSession.players;
+    final rules = widget.gameSession.houseRules;
 
     return Scaffold(
       appBar: AppBar(title: const Text('CHOOSE PLAYER MAAL')),
@@ -720,6 +856,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                     final player = players[index];
                     final avatar = availableAvatars[player.avatarIndex];
                     final maal = player.maal;
+                    final totalPts = maal.getTotalPoints(rules);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
@@ -750,7 +887,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                               border: Border.all(color: const Color(0xFF34D399).withOpacity(0.4)),
                             ),
                             child: Text(
-                              '${maal.totalPoints} pts',
+                              '$totalPts pts',
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
                             ),
                           ),
@@ -761,19 +898,19 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                                 spacing: 8.0,
                                 runSpacing: 8.0,
                                 children: [
-                                  _buildChoiceChip('Marriage (10pts)', maal.hasMarriage, (val) {
+                                  _buildChoiceChip('Marriage (${rules.marriagePoints}pts)', maal.hasMarriage, (val) {
                                     setState(() => maal.hasMarriage = val);
                                   }),
-                                  _buildChoiceChip('Tunnel/3-Pattia (5pts)', maal.hasTunnel, (val) {
+                                  _buildChoiceChip('Tunnel/3-Pattia (${rules.tunnelPoints}pts)', maal.hasTunnel, (val) {
                                     setState(() => maal.hasTunnel = val);
                                   }),
-                                  _buildChoiceChip('Tiplu (3pts)', maal.hasTiplu, (val) {
+                                  _buildChoiceChip('Tiplu (${rules.tipluPoints}pts)', maal.hasTiplu, (val) {
                                     setState(() => maal.hasTiplu = val);
                                   }),
-                                  _buildChoiceChip('Alte (3pts)', maal.hasAlte, (val) {
+                                  _buildChoiceChip('Alte (${rules.altePoints}pts)', maal.hasAlte, (val) {
                                     setState(() => maal.hasAlte = val);
                                   }),
-                                  _buildChoiceChip('Jhal (3pts)', maal.hasJhal, (val) {
+                                  _buildChoiceChip('Jhal (${rules.jhalPoints}pts)', maal.hasJhal, (val) {
                                     setState(() => maal.hasJhal = val);
                                   }),
                                 ],
@@ -797,7 +934,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                 onPressed: () async {
                   Map<String, int> roundPoints = {};
                   for (var p in players) {
-                    roundPoints[p.name] = p.maal.totalPoints;
+                    roundPoints[p.name] = p.maal.getTotalPoints(rules);
                   }
                   await widget.gameSession.recordRound(roundPoints);
 
