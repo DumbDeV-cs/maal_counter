@@ -235,11 +235,11 @@ class GradientBackground extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            top: -50,
-            right: -50,
+            top: -60,
+            right: -60,
             child: Container(
-              width: 250,
-              height: 250,
+              width: 280,
+              height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.pinkAccent.withOpacity(0.15),
@@ -247,11 +247,11 @@ class GradientBackground extends StatelessWidget {
             ),
           ),
           Positioned(
-            bottom: -50,
-            left: -50,
+            bottom: -60,
+            left: -60,
             child: Container(
-              width: 250,
-              height: 250,
+              width: 280,
+              height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.cyanAccent.withOpacity(0.15),
@@ -259,7 +259,7 @@ class GradientBackground extends StatelessWidget {
             ),
           ),
           BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+            filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
             child: Container(color: Colors.transparent),
           ),
           SafeArea(child: child),
@@ -277,17 +277,28 @@ class GameSetupScreen extends StatefulWidget {
   State<GameSetupScreen> createState() => _GameSetupScreenState();
 }
 
-class _GameSetupScreenState extends State<GameSetupScreen> {
+class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _playerController = TextEditingController();
   final List<Player> _players = [];
   final HouseRules _houseRules = HouseRules();
   int _selectedAvatarIndex = 0;
   bool _isLoading = true;
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
     _checkExistingSession();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _playerController.dispose();
+    super.dispose();
   }
 
   void _checkExistingSession() async {
@@ -301,6 +312,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       );
     } else {
       setState(() => _isLoading = false);
+      _fadeController.forward();
     }
   }
 
@@ -461,193 +473,215 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         ],
       ),
       body: GradientBackground(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Developer Badge Header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Developer Badge Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Color(0xFF8B5CF6),
+                        child: Icon(Icons.person, size: 16, color: Colors.white),
+                      ),
+                      SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('PRABESH DHITAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 11)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                child: const Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Color(0xFF8B5CF6),
-                      child: Icon(Icons.person, size: 16, color: Colors.white),
-                    ),
-                    SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('PRABESH DHITAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 11)),
-                      ],
-                    ),
-                  ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Select Profile Icon:',
+                  style: TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Select Profile Icon:',
-                style: TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 60,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: availableAvatars.length,
-                  itemBuilder: (context, index) {
-                    final avatar = availableAvatars[index];
-                    final isSelected = index == _selectedAvatarIndex;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedAvatarIndex = index),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.only(right: 12),
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? Colors.white : Colors.transparent,
-                            width: 2.5,
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 60,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: availableAvatars.length,
+                    itemBuilder: (context, index) {
+                      final avatar = availableAvatars[index];
+                      final isSelected = index == _selectedAvatarIndex;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedAvatarIndex = index),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutBack,
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? Colors.white : Colors.transparent,
+                              width: 2.5,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            backgroundColor: avatar.color,
+                            radius: isSelected ? 24 : 20,
+                            child: Icon(avatar.icon, color: Colors.white, size: isSelected ? 24 : 20),
                           ),
                         ),
-                        child: CircleAvatar(
-                          backgroundColor: avatar.color,
-                          radius: isSelected ? 24 : 20,
-                          child: Icon(avatar.icon, color: Colors.white, size: isSelected ? 24 : 20),
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _playerController,
-                maxLength: 12,
-                style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: 'Enter player name...',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.07),
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: CircleAvatar(
-                      backgroundColor: activeAvatar.color,
-                      child: Icon(activeAvatar.icon, color: Colors.white, size: 20),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _playerController,
+                  maxLength: 12,
+                  style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: 'Enter player name...',
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.07),
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: CircleAvatar(
+                        backgroundColor: activeAvatar.color,
+                        child: Icon(activeAvatar.icon, color: Colors.white, size: 20),
+                      ),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.add_circle, color: Color(0xFF34D399), size: 30),
+                      onPressed: _players.length < 5 ? _addPlayer : null,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
                     ),
                   ),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.add_circle, color: Color(0xFF34D399), size: 30),
-                    onPressed: _players.length < 5 ? _addPlayer : null,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2),
-                  ),
+                  onSubmitted: (_) => _addPlayer(),
                 ),
-                onSubmitted: (_) => _addPlayer(),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: _players.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.groups_outlined, size: 64, color: Colors.white24),
-                            SizedBox(height: 10),
-                            Text(
-                              'No players added yet\nPick an icon & tap + to add',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white38, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _players.length,
-                        itemBuilder: (context, index) {
-                          final player = _players[index];
-                          final avatar = availableAvatars[player.avatarIndex];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.06),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withOpacity(0.08)),
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: avatar.color,
-                                  child: Icon(avatar.icon, color: Colors.white, size: 22),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: _players.isEmpty
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.groups_outlined, size: 64, color: Colors.white24),
+                              SizedBox(height: 10),
+                              Text(
+                                'No players added yet\nPick an icon & tap + to add',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white38, fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _players.length,
+                          itemBuilder: (context, index) {
+                            final player = _players[index];
+                            final avatar = availableAvatars[player.avatarIndex];
+                            return TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 0.0, end: 1.0),
+                              duration: Duration(milliseconds: 300 + (index * 80)),
+                              builder: (context, val, child) {
+                                return Transform.translate(
+                                  offset: Offset(0, 20 * (1 - val)),
+                                  child: Opacity(opacity: val, child: child),
+                                );
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.06),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white.withOpacity(0.08)),
                                 ),
-                                title: Text(
-                                  player.name,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                                  onPressed: () {
-                                    setState(() {
-                                      _players.removeAt(index);
-                                    });
-                                  },
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor: avatar.color,
+                                      child: Icon(avatar.icon, color: Colors.white, size: 22),
+                                    ),
+                                    title: Text(
+                                      player.name,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                                    ),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                                      onPressed: () {
+                                        setState(() {
+                                          _players.removeAt(index);
+                                        });
+                                      },
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 8,
+                            );
+                          },
+                        ),
                 ),
-                onPressed: _players.length >= 2
-                    ? () async {
-                        final gameSession = GameSession(players: _players, houseRules: _houseRules);
-                        await gameSession.saveToStorage();
-                        if (context.mounted) {
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: gameSession),
-                              transitionsBuilder: (context, anim1, anim2, child) {
-                                return FadeTransition(opacity: anim1, child: child);
-                              },
-                            ),
-                          );
-                        }
-                      }
-                    : null,
-                child: const Text('SELECT TIPLU', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-              ),
-            ],
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: _players.length >= 2
+                        ? [BoxShadow(color: const Color(0xFF8B5CF6).withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 5))]
+                        : [],
+                  ),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B5CF6),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    onPressed: _players.length >= 2
+                        ? () async {
+                            final gameSession = GameSession(players: _players, houseRules: _houseRules);
+                            await gameSession.saveToStorage();
+                            if (context.mounted) {
+                              Navigator.push(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: gameSession),
+                                  transitionsBuilder: (context, anim1, anim2, child) {
+                                    return FadeTransition(opacity: anim1, child: child);
+                                  },
+                                ),
+                              );
+                            }
+                          }
+                        : null,
+                    child: const Text('SELECT TIPLU', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -696,7 +730,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
               _buildSelector('Rank', selectedRank, ranks, (val) => setState(() => selectedRank = val!)),
               const Spacer(),
               TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0.8, end: 1.0),
+                tween: Tween<double>(begin: 0.85, end: 1.0),
                 duration: const Duration(milliseconds: 400),
                 curve: Curves.easeOutBack,
                 builder: (context, scale, child) {
@@ -734,32 +768,38 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                 ),
               ),
               const Spacer(),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 8,
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: const Color(0xFF8B5CF6).withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 5))],
                 ),
-                onPressed: () {
-                  for (var p in widget.gameSession.players) {
-                    p.resetRound();
-                  }
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, anim1, anim2) => MaalInputScreen(
-                        gameSession: widget.gameSession,
-                        tiplu: '$selectedRank of $selectedSuit',
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    for (var p in widget.gameSession.players) {
+                      p.resetRound();
+                    }
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, anim1, anim2) => MaalInputScreen(
+                          gameSession: widget.gameSession,
+                          tiplu: '$selectedRank of $selectedSuit',
+                        ),
+                        transitionsBuilder: (context, anim1, anim2, child) {
+                          return FadeTransition(opacity: anim1, child: child);
+                        },
                       ),
-                      transitionsBuilder: (context, anim1, anim2, child) {
-                        return FadeTransition(opacity: anim1, child: child);
-                      },
-                    ),
-                  );
-                },
-                child: const Text('CHOOSE MAAL OPTIONS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                    );
+                  },
+                  child: const Text('CHOOSE MAAL OPTIONS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                ),
               ),
             ],
           ),
@@ -923,37 +963,43 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                   },
                 ),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 8,
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: const Color(0xFF8B5CF6).withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 5))],
                 ),
-                onPressed: () async {
-                  Map<String, int> roundPoints = {};
-                  for (var p in players) {
-                    roundPoints[p.name] = p.maal.getTotalPoints(rules);
-                  }
-                  await widget.gameSession.recordRound(roundPoints);
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                  onPressed: () async {
+                    Map<String, int> roundPoints = {};
+                    for (var p in players) {
+                      roundPoints[p.name] = p.maal.getTotalPoints(rules);
+                    }
+                    await widget.gameSession.recordRound(roundPoints);
 
-                  if (context.mounted) {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, anim1, anim2) => ScoreSummaryScreen(
-                          gameSession: widget.gameSession,
-                          tiplu: widget.tiplu,
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          pageBuilder: (context, anim1, anim2) => ScoreSummaryScreen(
+                            gameSession: widget.gameSession,
+                            tiplu: widget.tiplu,
+                          ),
+                          transitionsBuilder: (context, anim1, anim2, child) {
+                            return FadeTransition(opacity: anim1, child: child);
+                          },
                         ),
-                        transitionsBuilder: (context, anim1, anim2, child) {
-                          return FadeTransition(opacity: anim1, child: child);
-                        },
-                      ),
-                    );
-                  }
-                },
-                child: const Text('VIEW SUMMARY', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                      );
+                    }
+                  },
+                  child: const Text('VIEW SUMMARY', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                ),
               ),
             ],
           ),
@@ -984,7 +1030,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
   }
 }
 
-// 4. Score Summary Screen with Celebration, Undo, & History Table
+// 4. Score Summary Screen with Celebration, Pulse Animation, Undo, & History Table
 class ScoreSummaryScreen extends StatefulWidget {
   final GameSession gameSession;
   final String tiplu;
@@ -995,8 +1041,10 @@ class ScoreSummaryScreen extends StatefulWidget {
   State<ScoreSummaryScreen> createState() => _ScoreSummaryScreenState();
 }
 
-class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTickerProviderStateMixin {
+class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProviderStateMixin {
   late AnimationController _confettiController;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -1005,11 +1053,21 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
       vsync: this,
       duration: const Duration(seconds: 3),
     )..forward();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
   }
 
   @override
   void dispose() {
     _confettiController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -1129,13 +1187,8 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween<double>(begin: 0.8, end: 1.0),
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.elasticOut,
-                    builder: (context, scale, child) {
-                      return Transform.scale(scale: scale, child: child);
-                    },
+                  ScaleTransition(
+                    scale: _pulseAnimation,
                     child: Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
@@ -1227,26 +1280,32 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B5CF6),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 8,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [BoxShadow(color: const Color(0xFF8B5CF6).withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 5))],
                           ),
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              PageRouteBuilder(
-                                pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: widget.gameSession),
-                                transitionsBuilder: (context, anim1, anim2, child) {
-                                  return FadeTransition(opacity: anim1, child: child);
-                                },
-                              ),
-                            );
-                          },
-                          child: const Text('NEXT ROUND', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8B5CF6),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              elevation: 0,
+                            ),
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                PageRouteBuilder(
+                                  pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: widget.gameSession),
+                                  transitionsBuilder: (context, anim1, anim2, child) {
+                                    return FadeTransition(opacity: anim1, child: child);
+                                  },
+                                ),
+                              );
+                            },
+                            child: const Text('NEXT ROUND', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
