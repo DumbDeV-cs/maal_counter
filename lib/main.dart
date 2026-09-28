@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:math' as math;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MarriageCounterApp());
@@ -33,8 +35,8 @@ class Player {
   final PlayerMaal maal;
   int cumulativeScore;
 
-  Player({required this.name, required this.avatarIndex}) 
-      : maal = PlayerMaal(), cumulativeScore = 0;
+  Player({required this.name, required this.avatarIndex, this.cumulativeScore = 0}) 
+      : maal = PlayerMaal();
 
   void resetRound() {
     maal.hasMarriage = false;
@@ -42,6 +44,20 @@ class Player {
     maal.hasTiplu = false;
     maal.hasAlte = false;
     maal.hasJhal = false;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'avatarIndex': avatarIndex,
+    'cumulativeScore': cumulativeScore,
+  };
+
+  factory Player.fromJson(Map<String, dynamic> json) {
+    return Player(
+      name: json['name'],
+      avatarIndex: json['avatarIndex'],
+      cumulativeScore: json['cumulativeScore'],
+    );
   }
 }
 
@@ -61,37 +77,65 @@ class PlayerMaal {
     (hasJhal ? 3 : 0);
 }
 
-// Centralized Game Session Controller for History & Undo
+// Centralized Game Session Controller with SharedPreferences Storage
 class GameSession {
   final List<Player> players;
-  final List<Map<String, int>> roundHistory = []; // Tracks points earned per player each round
+  final List<Map<String, int>> roundHistory = [];
 
   GameSession({required this.players});
 
-  void recordRound(Map<String, int> roundPoints) {
+  Future<void> saveToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('saved_players', jsonEncode(players.map((p) => p.toJson()).toList()));
+    prefs.setString('saved_history', jsonEncode(roundHistory));
+  }
+
+  static Future<GameSession?> loadFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final playersStr = prefs.getString('saved_players');
+    final historyStr = prefs.getString('saved_history');
+
+    if (playersStr != null) {
+      List decodedPlayers = jsonDecode(playersStr);
+      List<Player> players = decodedPlayers.map((item) => Player.fromJson(item)).toList();
+      
+      GameSession session = GameSession(players: players);
+
+      if (historyStr != null) {
+        List decodedHistory = jsonDecode(historyStr);
+        for (var h in decodedHistory) {
+          session.roundHistory.add(Map<String, int>.from(h));
+        }
+      }
+      return session;
+    }
+    return null;
+  }
+
+  Future<void> recordRound(Map<String, int> roundPoints) async {
     roundHistory.add(roundPoints);
     for (var player in players) {
       player.cumulativeScore += roundPoints[player.name] ?? 0;
     }
+    await saveToStorage();
   }
 
-  bool undoLastRound() {
+  Future<bool> undoLastRound() async {
     if (roundHistory.isNotEmpty) {
       final lastRound = roundHistory.removeLast();
       for (var player in players) {
         player.cumulativeScore -= lastRound[player.name] ?? 0;
       }
+      await saveToStorage();
       return true;
     }
     return false;
   }
 
-  void resetGame() {
-    roundHistory.clear();
-    for (var player in players) {
-      player.cumulativeScore = 0;
-      player.resetRound();
-    }
+  Future<void> clearStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove('saved_players');
+    prefs.remove('saved_history');
   }
 }
 
@@ -193,6 +237,28 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   final TextEditingController _playerController = TextEditingController();
   final List<Player> _players = [];
   int _selectedAvatarIndex = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingSession();
+  }
+
+  void _checkExistingSession() async {
+    GameSession? existingSession = await GameSession.loadFromStorage();
+    if (existingSession != null && existingSession.players.isNotEmpty && mounted) {
+      // Prompt user or automatically resume
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TipluSelectionScreen(gameSession: existingSession),
+        ),
+      );
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
 
   void _addPlayer() {
     if (_playerController.text.trim().isNotEmpty && _players.length < 5) {
@@ -211,6 +277,12 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF8B5CF6))),
+      );
+    }
+
     final activeAvatar = availableAvatars[_selectedAvatarIndex];
 
     return Scaffold(
@@ -357,8 +429,9 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   elevation: 8,
                 ),
                 onPressed: _players.length >= 2
-                    ? () {
+                    ? () async {
                         final gameSession = GameSession(players: _players);
+                        await gameSession.saveToStorage();
                         Navigator.push(
                           context,
                           PageRouteBuilder(
@@ -654,25 +727,27 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 8,
                 ),
-                onPressed: () {
+                onPressed: () async {
                   Map<String, int> roundPoints = {};
                   for (var p in players) {
                     roundPoints[p.name] = p.maal.totalPoints;
                   }
-                  widget.gameSession.recordRound(roundPoints);
+                  await widget.gameSession.recordRound(roundPoints);
 
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, anim1, anim2) => ScoreSummaryScreen(
-                        gameSession: widget.gameSession,
-                        tiplu: widget.tiplu,
+                  if (context.mounted) {
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, anim1, anim2) => ScoreSummaryScreen(
+                          gameSession: widget.gameSession,
+                          tiplu: widget.tiplu,
+                        ),
+                        transitionsBuilder: (context, anim1, anim2, child) {
+                          return FadeTransition(opacity: anim1, child: child);
+                        },
                       ),
-                      transitionsBuilder: (context, anim1, anim2, child) {
-                        return FadeTransition(opacity: anim1, child: child);
-                      },
-                    ),
-                  );
+                    );
+                  }
                 },
                 child: const Text('VIEW SUMMARY', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
               ),
@@ -820,11 +895,11 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
           IconButton(
             icon: const Icon(Icons.undo, color: Colors.orangeAccent),
             tooltip: 'Undo Last Round',
-            onPressed: () {
-              bool success = widget.gameSession.undoLastRound();
-              if (success) {
-                Navigator.pop(context); // Go back to Maal input screen to re-adjust
-              } else {
+            onPressed: () async {
+              bool success = await widget.gameSession.undoLastRound();
+              if (success && mounted) {
+                Navigator.pop(context);
+              } else if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('No rounds to undo!')),
                 );
@@ -836,7 +911,6 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
       body: GradientBackground(
         child: Stack(
           children: [
-            // Victory celebration particle overlay
             AnimatedBuilder(
               animation: _confettiController,
               builder: (context, child) {
@@ -984,8 +1058,11 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
                             ),
                             elevation: 0,
                           ),
-                          onPressed: () {
-                            Navigator.popUntil(context, (route) => route.isFirst);
+                          onPressed: () async {
+                            await widget.gameSession.clearStorage();
+                            if (context.mounted) {
+                              Navigator.popUntil(context, (route) => route.isFirst);
+                            }
                           },
                           child: const Text('NEW GAME', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
                         ),
