@@ -393,7 +393,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.between,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
           Row(
@@ -488,23 +488,23 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
                   ),
-                  child: const Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 14,
-                        backgroundColor: Color(0xFF8B5CF6),
-                        child: Icon(Icons.person, size: 16, color: Colors.white),
-                      ),
-                      SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('PRABESH DHITAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 11)),
-                        ],
-                      ),
-                    ],
-                  ),
+child: Row(
+  children: [
+    CircleAvatar(
+      radius: 14,
+      backgroundColor: Color(0xFF8B5CF6),
+      backgroundImage: AssetImage('assets/mascot.png'),
+    ),
+    SizedBox(width: 10),
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('PRABESH DHITAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 11)),
+      ],
+    ),
+  ],
+),
                 ),
                 const SizedBox(height: 16),
                 const Text(
