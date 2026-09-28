@@ -26,7 +26,7 @@ const List<AvatarData> availableAvatars = [
   AvatarData(icon: Icons.sports_esports, color: Color(0xFF6366F1), name: 'Gamer'),
 ];
 
-// Player Model with Cumulative Score Support
+// Player Model
 class Player {
   final String name;
   final int avatarIndex;
@@ -59,6 +59,40 @@ class PlayerMaal {
     (hasTiplu ? 3 : 0) + 
     (hasAlte ? 3 : 0) + 
     (hasJhal ? 3 : 0);
+}
+
+// Centralized Game Session Controller for History & Undo
+class GameSession {
+  final List<Player> players;
+  final List<Map<String, int>> roundHistory = []; // Tracks points earned per player each round
+
+  GameSession({required this.players});
+
+  void recordRound(Map<String, int> roundPoints) {
+    roundHistory.add(roundPoints);
+    for (var player in players) {
+      player.cumulativeScore += roundPoints[player.name] ?? 0;
+    }
+  }
+
+  bool undoLastRound() {
+    if (roundHistory.isNotEmpty) {
+      final lastRound = roundHistory.removeLast();
+      for (var player in players) {
+        player.cumulativeScore -= lastRound[player.name] ?? 0;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  void resetGame() {
+    roundHistory.clear();
+    for (var player in players) {
+      player.cumulativeScore = 0;
+      player.resetRound();
+    }
+  }
 }
 
 class MarriageCounterApp extends StatelessWidget {
@@ -324,14 +358,11 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 ),
                 onPressed: _players.length >= 2
                     ? () {
-                        for (var p in _players) {
-                          p.cumulativeScore = 0;
-                          p.resetRound();
-                        }
+                        final gameSession = GameSession(players: _players);
                         Navigator.push(
                           context,
                           PageRouteBuilder(
-                            pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(players: _players),
+                            pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: gameSession),
                             transitionsBuilder: (context, anim1, anim2, child) {
                               return FadeTransition(opacity: anim1, child: child);
                             },
@@ -351,8 +382,8 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
 // 2. Tiplu Selection Screen
 class TipluSelectionScreen extends StatefulWidget {
-  final List<Player> players;
-  const TipluSelectionScreen({super.key, required this.players});
+  final GameSession gameSession;
+  const TipluSelectionScreen({super.key, required this.gameSession});
 
   @override
   State<TipluSelectionScreen> createState() => _TipluSelectionScreenState();
@@ -437,14 +468,14 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                   elevation: 8,
                 ),
                 onPressed: () {
-                  for (var p in widget.players) {
+                  for (var p in widget.gameSession.players) {
                     p.resetRound();
                   }
                   Navigator.push(
                     context,
                     PageRouteBuilder(
                       pageBuilder: (context, anim1, anim2) => MaalInputScreen(
-                        players: widget.players,
+                        gameSession: widget.gameSession,
                         tiplu: '$selectedRank of $selectedSuit',
                       ),
                       transitionsBuilder: (context, anim1, anim2, child) {
@@ -496,10 +527,10 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
 
 // 3. Maal Input Screen
 class MaalInputScreen extends StatefulWidget {
-  final List<Player> players;
+  final GameSession gameSession;
   final String tiplu;
 
-  const MaalInputScreen({super.key, required this.players, required this.tiplu});
+  const MaalInputScreen({super.key, required this.gameSession, required this.tiplu});
 
   @override
   State<MaalInputScreen> createState() => _MaalInputScreenState();
@@ -508,6 +539,8 @@ class MaalInputScreen extends StatefulWidget {
 class _MaalInputScreenState extends State<MaalInputScreen> {
   @override
   Widget build(BuildContext context) {
+    final players = widget.gameSession.players;
+
     return Scaffold(
       appBar: AppBar(title: const Text('CHOOSE PLAYER MAAL')),
       body: GradientBackground(
@@ -542,9 +575,9 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
               const SizedBox(height: 8),
               Expanded(
                 child: ListView.builder(
-                  itemCount: widget.players.length,
+                  itemCount: players.length,
                   itemBuilder: (context, index) {
-                    final player = widget.players[index];
+                    final player = players[index];
                     final avatar = availableAvatars[player.avatarIndex];
                     final maal = player.maal;
 
@@ -622,14 +655,17 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                   elevation: 8,
                 ),
                 onPressed: () {
-                  for (var p in widget.players) {
-                    p.cumulativeScore += p.maal.totalPoints;
+                  Map<String, int> roundPoints = {};
+                  for (var p in players) {
+                    roundPoints[p.name] = p.maal.totalPoints;
                   }
+                  widget.gameSession.recordRound(roundPoints);
+
                   Navigator.push(
                     context,
                     PageRouteBuilder(
                       pageBuilder: (context, anim1, anim2) => ScoreSummaryScreen(
-                        players: widget.players,
+                        gameSession: widget.gameSession,
                         tiplu: widget.tiplu,
                       ),
                       transitionsBuilder: (context, anim1, anim2, child) {
@@ -669,12 +705,12 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
   }
 }
 
-// 4. Score Summary Screen with Custom Victory Celebration Animation
+// 4. Score Summary Screen with Celebration, Undo, & History Table
 class ScoreSummaryScreen extends StatefulWidget {
-  final List<Player> players;
+  final GameSession gameSession;
   final String tiplu;
 
-  const ScoreSummaryScreen({super.key, required this.players, required this.tiplu});
+  const ScoreSummaryScreen({super.key, required this.gameSession, required this.tiplu});
 
   @override
   State<ScoreSummaryScreen> createState() => _ScoreSummaryScreenState();
@@ -699,9 +735,71 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
   }
 
   List<Player> _getSortedPlayers() {
-    List<Player> list = List.from(widget.players);
+    List<Player> list = List.from(widget.gameSession.players);
     list.sort((a, b) => b.cumulativeScore.compareTo(a.cumulativeScore));
     return list;
+  }
+
+  void _showHistoryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final players = widget.gameSession.players;
+        final history = widget.gameSession.roundHistory;
+
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1B4B),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Round History Matrix', style: TextStyle(color: Colors.white, fontSize: 18)),
+          content: history.isEmpty
+              ? const Text('No rounds played yet.', style: TextStyle(color: Colors.white70))
+              : SizedBox(
+                  width: double.maxFinite,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: history.length,
+                    itemBuilder: (context, roundIndex) {
+                      final roundData = history[roundIndex];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Round ${roundIndex + 1}',
+                              style: const TextStyle(color: Color(0xFFC4B5FD), fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 12,
+                              children: players.map((p) {
+                                int pts = roundData[p.name] ?? 0;
+                                return Text(
+                                  '${p.name}: +$pts',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close', style: TextStyle(color: Color(0xFF8B5CF6))),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -711,7 +809,30 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
     final leaderAvatar = availableAvatars[leader.avatarIndex];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('STANDINGS')),
+      appBar: AppBar(
+        title: const Text('STANDINGS'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history, color: Color(0xFFC4B5FD)),
+            tooltip: 'View Round History',
+            onPressed: _showHistoryDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.undo, color: Colors.orangeAccent),
+            tooltip: 'Undo Last Round',
+            onPressed: () {
+              bool success = widget.gameSession.undoLastRound();
+              if (success) {
+                Navigator.pop(context); // Go back to Maal input screen to re-adjust
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('No rounds to undo!')),
+                );
+              }
+            },
+          ),
+        ],
+      ),
       body: GradientBackground(
         child: Stack(
           children: [
@@ -840,7 +961,7 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with SingleTick
                             Navigator.pushReplacement(
                               context,
                               PageRouteBuilder(
-                                pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(players: widget.players),
+                                pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: widget.gameSession),
                                 transitionsBuilder: (context, anim1, anim2, child) {
                                   return FadeTransition(opacity: anim1, child: child);
                                 },
