@@ -8,7 +8,9 @@ void main() {
   runApp(const MarriageCounterApp());
 }
 
+// ---------------------------------------------------------------------------
 // Avatar Model
+// ---------------------------------------------------------------------------
 class AvatarData {
   final IconData icon;
   final Color color;
@@ -28,91 +30,125 @@ const List<AvatarData> availableAvatars = [
   AvatarData(icon: Icons.sports_esports, color: Color(0xFF6366F1), name: 'Gamer'),
 ];
 
-// House Rules Configuration Model
+// ---------------------------------------------------------------------------
+// House Rules (all point values are editable from the setup screen)
+// ---------------------------------------------------------------------------
 class HouseRules {
-  int marriagePoints;
-  int tunnelPoints;
-  int tipluPoints;
-  int altePoints;
-  int jhalPoints;
+  int marriageHigh; // Marriage option 1 (default 15)
+  int marriageLow; // Marriage option 2 (default 10)
+  List<int> maalPoints; // index = number of maal (0, 1, 2)
+  int tipluPerCard; // points per tiplu
+  List<int> alterPoints; // index = number of alter (0..3)
+  List<int> jokerPoints; // index = number of joker (0..3)
+  int winnerFullPoints; // winner gets this from a player who has NOT shown sequences
+  int winnerReducedPoints; // winner gets this from a player who HAS shown sequences
 
   HouseRules({
-    this.marriagePoints = 10,
-    this.tunnelPoints = 5,
-    this.tipluPoints = 3,
-    this.altePoints = 3,
-    this.jhalPoints = 3,
-  });
+    this.marriageHigh = 15,
+    this.marriageLow = 10,
+    List<int>? maalPoints,
+    this.tipluPerCard = 2,
+    List<int>? alterPoints,
+    List<int>? jokerPoints,
+    this.winnerFullPoints = 10,
+    this.winnerReducedPoints = 3,
+  })  : maalPoints = maalPoints ?? [0, 3, 8],
+        alterPoints = alterPoints ?? [0, 5, 15, 20],
+        jokerPoints = jokerPoints ?? [0, 5, 15, 20];
+
+  int get maxMaal => maalPoints.length - 1;
+  int get maxAlter => alterPoints.length - 1;
+  int get maxJoker => jokerPoints.length - 1;
 
   Map<String, dynamic> toJson() => {
-    'marriage': marriagePoints,
-    'tunnel': tunnelPoints,
-    'tiplu': tipluPoints,
-    'alte': altePoints,
-    'jhal': jhalPoints,
-  };
+        'marriageHigh': marriageHigh,
+        'marriageLow': marriageLow,
+        'maal': maalPoints,
+        'tipluPerCard': tipluPerCard,
+        'alter': alterPoints,
+        'joker': jokerPoints,
+        'winnerFull': winnerFullPoints,
+        'winnerReduced': winnerReducedPoints,
+      };
 
   factory HouseRules.fromJson(Map<String, dynamic> json) {
     return HouseRules(
-      marriagePoints: json['marriage'] ?? 10,
-      tunnelPoints: json['tunnel'] ?? 5,
-      tipluPoints: json['tiplu'] ?? 3,
-      altePoints: json['alte'] ?? 3,
-      jhalPoints: json['jhal'] ?? 3,
+      marriageHigh: json['marriageHigh'] ?? 15,
+      marriageLow: json['marriageLow'] ?? 10,
+      maalPoints: json['maal'] != null ? List<int>.from(json['maal']) : null,
+      tipluPerCard: json['tipluPerCard'] ?? 2,
+      alterPoints: json['alter'] != null ? List<int>.from(json['alter']) : null,
+      jokerPoints: json['joker'] != null ? List<int>.from(json['joker']) : null,
+      winnerFullPoints: json['winnerFull'] ?? 10,
+      winnerReducedPoints: json['winnerReduced'] ?? 3,
     );
   }
 }
 
+// ---------------------------------------------------------------------------
 // Player Model
+// ---------------------------------------------------------------------------
 class Player {
   final String name;
   final int avatarIndex;
   final PlayerMaal maal;
   int cumulativeScore;
 
-  Player({required this.name, required this.avatarIndex, this.cumulativeScore = 0}) 
+  Player({required this.name, required this.avatarIndex, this.cumulativeScore = 0})
       : maal = PlayerMaal();
 
-  void resetRound() {
-    maal.hasMarriage = false;
-    maal.hasTunnel = false;
-    maal.hasTiplu = false;
-    maal.hasAlte = false;
-    maal.hasJhal = false;
-  }
+  void resetRound() => maal.reset();
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'avatarIndex': avatarIndex,
-    'cumulativeScore': cumulativeScore,
-  };
+        'name': name,
+        'avatarIndex': avatarIndex,
+        'cumulativeScore': cumulativeScore,
+      };
 
   factory Player.fromJson(Map<String, dynamic> json) {
     return Player(
       name: json['name'],
       avatarIndex: json['avatarIndex'],
-      cumulativeScore: json['cumulativeScore'],
+      cumulativeScore: json['cumulativeScore'] ?? 0,
     );
   }
 }
 
-// Model for Player Maal Options
+// What a player holds in one round
 class PlayerMaal {
-  bool hasMarriage = false; 
-  bool hasTunnel = false;   
-  bool hasTiplu = false;    
-  bool hasAlte = false;     
-  bool hasJhal = false;     
+  bool hasMarriageHigh = false; // e.g. 15 pts
+  bool hasMarriageLow = false; // e.g. 10 pts
+  int maalCount = 0;
+  int tipluCount = 0;
+  int alterCount = 0;
+  int jokerCount = 0;
+  bool hasShownSequence = false;
 
-  int getTotalPoints(HouseRules rules) => 
-    (hasMarriage ? rules.marriagePoints : 0) + 
-    (hasTunnel ? rules.tunnelPoints : 0) + 
-    (hasTiplu ? rules.tipluPoints : 0) + 
-    (hasAlte ? rules.altePoints : 0) + 
-    (hasJhal ? rules.jhalPoints : 0);
+  void reset() {
+    hasMarriageHigh = false;
+    hasMarriageLow = false;
+    maalCount = 0;
+    tipluCount = 0;
+    alterCount = 0;
+    jokerCount = 0;
+    hasShownSequence = false;
+  }
+
+  int getTotalPoints(HouseRules rules) {
+    int total = 0;
+    if (hasMarriageHigh) total += rules.marriageHigh;
+    if (hasMarriageLow) total += rules.marriageLow;
+    total += rules.maalPoints[maalCount.clamp(0, rules.maxMaal)];
+    total += tipluCount * rules.tipluPerCard;
+    total += rules.alterPoints[alterCount.clamp(0, rules.maxAlter)];
+    total += rules.jokerPoints[jokerCount.clamp(0, rules.maxJoker)];
+    return total;
+  }
 }
 
-// Centralized Game Session Controller with SharedPreferences Storage
+// ---------------------------------------------------------------------------
+// Game Session Controller with SharedPreferences Storage
+// ---------------------------------------------------------------------------
 class GameSession {
   final List<Player> players;
   final HouseRules houseRules;
@@ -123,36 +159,60 @@ class GameSession {
 
   Future<void> saveToStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString('saved_players', jsonEncode(players.map((p) => p.toJson()).toList()));
-    prefs.setString('saved_history', jsonEncode(roundHistory));
-    prefs.setString('saved_rules', jsonEncode(houseRules.toJson()));
+    await prefs.setString('saved_players', jsonEncode(players.map((p) => p.toJson()).toList()));
+    await prefs.setString('saved_history', jsonEncode(roundHistory));
+    await prefs.setString('saved_rules', jsonEncode(houseRules.toJson()));
   }
 
   static Future<GameSession?> loadFromStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final playersStr = prefs.getString('saved_players');
-    final historyStr = prefs.getString('saved_history');
-    final rulesStr = prefs.getString('saved_rules');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final playersStr = prefs.getString('saved_players');
+      final historyStr = prefs.getString('saved_history');
+      final rulesStr = prefs.getString('saved_rules');
 
-    if (playersStr != null) {
-      List decodedPlayers = jsonDecode(playersStr);
-      List<Player> players = decodedPlayers.map((item) => Player.fromJson(item)).toList();
-      
-      HouseRules rules = rulesStr != null 
-          ? HouseRules.fromJson(jsonDecode(rulesStr)) 
-          : HouseRules();
+      if (playersStr != null) {
+        List decodedPlayers = jsonDecode(playersStr);
+        List<Player> players = decodedPlayers.map((item) => Player.fromJson(item)).toList();
 
-      GameSession session = GameSession(players: players, houseRules: rules);
+        HouseRules rules = rulesStr != null ? HouseRules.fromJson(jsonDecode(rulesStr)) : HouseRules();
 
-      if (historyStr != null) {
-        List decodedHistory = jsonDecode(historyStr);
-        for (var h in decodedHistory) {
-          session.roundHistory.add(Map<String, int>.from(h));
+        GameSession session = GameSession(players: players, houseRules: rules);
+
+        if (historyStr != null) {
+          List decodedHistory = jsonDecode(historyStr);
+          for (var h in decodedHistory) {
+            session.roundHistory.add(Map<String, int>.from(h));
+          }
         }
+        return session;
       }
-      return session;
+    } catch (_) {
+      // corrupted / old-format save: ignore and start fresh
     }
     return null;
+  }
+
+  /// Calculates this round's points for every player:
+  ///  - each player's own maal/marriage/tiplu/alter/joker points
+  ///  - winner (the one who showed) collects from every other player:
+  ///      winnerFullPoints if that player has NOT shown sequences,
+  ///      winnerReducedPoints if that player HAS shown sequences.
+  ///    The amount is subtracted from the paying player.
+  Map<String, int> calculateRound(String winnerName) {
+    final Map<String, int> points = {};
+    for (var p in players) {
+      points[p.name] = p.maal.getTotalPoints(houseRules);
+    }
+    for (var p in players) {
+      if (p.name == winnerName) continue;
+      final pay = p.maal.hasShownSequence
+          ? houseRules.winnerReducedPoints
+          : houseRules.winnerFullPoints;
+      points[p.name] = (points[p.name] ?? 0) - pay;
+      points[winnerName] = (points[winnerName] ?? 0) + pay;
+    }
+    return points;
   }
 
   Future<void> recordRound(Map<String, int> roundPoints) async {
@@ -175,13 +235,15 @@ class GameSession {
     return false;
   }
 
-  Future<void> clearStorage() async {
+  static Future<void> clearStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    prefs.remove('saved_players');
-    prefs.remove('saved_history');
-    prefs.remove('saved_rules');
+    await prefs.remove('saved_players');
+    await prefs.remove('saved_history');
+    await prefs.remove('saved_rules');
   }
 }
+
+String _signed(int v) => v > 0 ? '+$v' : '$v';
 
 class MarriageCounterApp extends StatelessWidget {
   const MarriageCounterApp({super.key});
@@ -225,11 +287,7 @@ class GradientBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0F172A),
-            Color(0xFF2E1065),
-            Color(0xFF4C1D95),
-          ],
+          colors: [Color(0xFF0F172A), Color(0xFF2E1065), Color(0xFF4C1D95)],
         ),
       ),
       child: Stack(
@@ -240,10 +298,7 @@ class GradientBackground extends StatelessWidget {
             child: Container(
               width: 280,
               height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.pinkAccent.withOpacity(0.15),
-              ),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.pinkAccent.withOpacity(0.15)),
             ),
           ),
           Positioned(
@@ -252,10 +307,7 @@ class GradientBackground extends StatelessWidget {
             child: Container(
               width: 280,
               height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.cyanAccent.withOpacity(0.15),
-              ),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.cyanAccent.withOpacity(0.15)),
             ),
           ),
           BackdropFilter(
@@ -269,7 +321,9 @@ class GradientBackground extends StatelessWidget {
   }
 }
 
-// 1. Game Setup Screen with Developer Branding & House Rules
+// ---------------------------------------------------------------------------
+// 1. Game Setup Screen (always opens here; old game can be resumed or discarded)
+// ---------------------------------------------------------------------------
 class GameSetupScreen extends StatefulWidget {
   const GameSetupScreen({super.key});
 
@@ -281,6 +335,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
   final TextEditingController _playerController = TextEditingController();
   final List<Player> _players = [];
   final HouseRules _houseRules = HouseRules();
+  GameSession? _savedSession;
   int _selectedAvatarIndex = 0;
   bool _isLoading = true;
   late AnimationController _fadeController;
@@ -291,7 +346,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
     super.initState();
     _fadeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
-    _checkExistingSession();
+    _loadSavedGame();
   }
 
   @override
@@ -301,34 +356,31 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
     super.dispose();
   }
 
-  void _checkExistingSession() async {
-    GameSession? existingSession = await GameSession.loadFromStorage();
-    if (existingSession != null && existingSession.players.isNotEmpty && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TipluSelectionScreen(gameSession: existingSession),
-        ),
-      );
-    } else {
-      setState(() => _isLoading = false);
-      _fadeController.forward();
-    }
+  // Only LOAD the old game; never force the user into it.
+  void _loadSavedGame() async {
+    final existing = await GameSession.loadFromStorage();
+    if (!mounted) return;
+    setState(() {
+      _savedSession = (existing != null && existing.players.isNotEmpty) ? existing : null;
+      _isLoading = false;
+    });
+    _fadeController.forward();
   }
 
   void _addPlayer() {
-    if (_playerController.text.trim().isNotEmpty && _players.length < 5) {
-      setState(() {
-        _players.add(
-          Player(
-            name: _playerController.text.trim().toUpperCase(),
-            avatarIndex: _selectedAvatarIndex,
-          ),
-        );
-        _playerController.clear();
-        _selectedAvatarIndex = (_selectedAvatarIndex + 1) % availableAvatars.length;
-      });
+    final name = _playerController.text.trim().toUpperCase();
+    if (name.isEmpty || _players.length >= 5) return;
+    if (_players.any((p) => p.name == name)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That name is already added. Use a different name.')),
+      );
+      return;
     }
+    setState(() {
+      _players.add(Player(name: name, avatarIndex: _selectedAvatarIndex));
+      _playerController.clear();
+      _selectedAvatarIndex = (_selectedAvatarIndex + 1) % availableAvatars.length;
+    });
   }
 
   void _showHouseRulesDialog() {
@@ -337,6 +389,23 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            Widget row(String label, int value, ValueChanged<int> onChanged) {
+              return _buildRuleRow(label, value, (val) {
+                setDialogState(() => onChanged(val));
+                setState(() {});
+              });
+            }
+
+            Widget header(String text) => Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 2),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(text.toUpperCase(),
+                        style: const TextStyle(color: Color(0xFFC4B5FD), fontSize: 12, letterSpacing: 1.2, fontWeight: FontWeight.bold)),
+                  ),
+                );
+
+            final r = _houseRules;
             return AlertDialog(
               backgroundColor: const Color(0xFF1E1B4B),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -347,33 +416,34 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
                   Text('House Rules', style: TextStyle(color: Colors.white)),
                 ],
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Customize point values for this match:', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                    const SizedBox(height: 15),
-                    _buildRuleRow('Marriage Points', _houseRules.marriagePoints, (val) {
-                      setDialogState(() => _houseRules.marriagePoints = val);
-                      setState(() {});
-                    }),
-                    _buildRuleRow('Tunnel / 3-Pattia', _houseRules.tunnelPoints, (val) {
-                      setDialogState(() => _houseRules.tunnelPoints = val);
-                      setState(() {});
-                    }),
-                    _buildRuleRow('Tiplu Points', _houseRules.tipluPoints, (val) {
-                      setDialogState(() => _houseRules.tipluPoints = val);
-                      setState(() {});
-                    }),
-                    _buildRuleRow('Alte Points', _houseRules.altePoints, (val) {
-                      setDialogState(() => _houseRules.altePoints = val);
-                      setState(() {});
-                    }),
-                    _buildRuleRow('Jhal Points', _houseRules.jhalPoints, (val) {
-                      setDialogState(() => _houseRules.jhalPoints = val);
-                      setState(() {});
-                    }),
-                  ],
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Customize point values for this match:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      header('Marriage'),
+                      row('Marriage (option 1)', r.marriageHigh, (v) => r.marriageHigh = v),
+                      row('Marriage (option 2)', r.marriageLow, (v) => r.marriageLow = v),
+                      header('Maal'),
+                      row('1 Maal', r.maalPoints[1], (v) => r.maalPoints[1] = v),
+                      row('2 Maal', r.maalPoints[2], (v) => r.maalPoints[2] = v),
+                      header('Tiplu'),
+                      row('Per Tiplu', r.tipluPerCard, (v) => r.tipluPerCard = v),
+                      header('Alter'),
+                      row('1 Alter', r.alterPoints[1], (v) => r.alterPoints[1] = v),
+                      row('2 Alter', r.alterPoints[2], (v) => r.alterPoints[2] = v),
+                      row('3 Alter', r.alterPoints[3], (v) => r.alterPoints[3] = v),
+                      header('Joker'),
+                      row('1 Joker', r.jokerPoints[1], (v) => r.jokerPoints[1] = v),
+                      row('2 Joker', r.jokerPoints[2], (v) => r.jokerPoints[2] = v),
+                      row('3 Joker', r.jokerPoints[3], (v) => r.jokerPoints[3] = v),
+                      header('Winner (showed cards)'),
+                      row('From player w/o sequences', r.winnerFullPoints, (v) => r.winnerFullPoints = v),
+                      row('From player with sequences', r.winnerReducedPoints, (v) => r.winnerReducedPoints = v),
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -391,21 +461,84 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
 
   Widget _buildRuleRow(String label, int currentVal, ValueChanged<int> onChanged) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          Expanded(child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14))),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
+            onPressed: currentVal > 0 ? () => onChanged(currentVal - 1) : null,
+          ),
+          SizedBox(
+            width: 28,
+            child: Text('$currentVal',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF34D399), size: 20),
+            onPressed: () => onChanged(currentVal + 1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResumeCard() {
+    final saved = _savedSession!;
+    final names = saved.players.map((p) => p.name).join(', ');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF34D399).withOpacity(0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF34D399).withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('UNFINISHED GAME FOUND',
+              style: TextStyle(color: Color(0xFF34D399), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const SizedBox(height: 4),
+          Text('$names  •  ${saved.roundHistory.length} round(s)',
+              style: const TextStyle(color: Colors.white70, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 8),
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
-                onPressed: currentVal > 0 ? () => onChanged(currentVal - 1) : null,
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF34D399),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => TipluSelectionScreen(gameSession: saved)),
+                    );
+                  },
+                  child: const Text('RESUME', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
               ),
-              Text('$currentVal', style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold, fontSize: 16)),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: Color(0xFF34D399), size: 20),
-                onPressed: () => onChanged(currentVal + 1),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    await GameSession.clearStorage();
+                    if (mounted) setState(() => _savedSession = null);
+                  },
+                  child: const Text('DISCARD', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
               ),
             ],
           ),
@@ -480,6 +613,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_savedSession != null) _buildResumeCard(),
                 // Developer Badge Header
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -488,27 +622,27 @@ class _GameSetupScreenState extends State<GameSetupScreen> with SingleTickerProv
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
                   ),
-child: Row(
-  children: [
-    CircleAvatar(
-      radius: 14,
-      backgroundColor: Color(0xFF8B5CF6),
-      backgroundImage: AssetImage('assets/mascot.png'),
-    ),
-    SizedBox(width: 10),
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('PRABESH DHITAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-        Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 11)),
-      ],
-    ),
-  ],
-),
+                  child: const Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Color(0xFF8B5CF6),
+                        backgroundImage: AssetImage('assets/mascot.png'),
+                      ),
+                      SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('PRABESH DHITAL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('GitHub: DumbDev-cs', style: TextStyle(color: Color(0xFF34D399), fontSize: 11)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Select Profile Icon:',
+                  'NEW GAME - Select Profile Icon:',
                   style: TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 10),
@@ -529,10 +663,7 @@ child: Row(
                           padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected ? Colors.white : Colors.transparent,
-                              width: 2.5,
-                            ),
+                            border: Border.all(color: isSelected ? Colors.white : Colors.transparent, width: 2.5),
                           ),
                           child: CircleAvatar(
                             backgroundColor: avatar.color,
@@ -632,11 +763,7 @@ child: Row(
                                     ),
                                     trailing: IconButton(
                                       icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                                      onPressed: () {
-                                        setState(() {
-                                          _players.removeAt(index);
-                                        });
-                                      },
+                                      onPressed: () => setState(() => _players.removeAt(index)),
                                     ),
                                   ),
                                 ),
@@ -662,22 +789,21 @@ child: Row(
                     ),
                     onPressed: _players.length >= 2
                         ? () async {
-                            final gameSession = GameSession(players: _players, houseRules: _houseRules);
+                            // Starting a fresh game overwrites any old saved game
+                            final gameSession = GameSession(players: List.from(_players), houseRules: _houseRules);
                             await gameSession.saveToStorage();
                             if (context.mounted) {
                               Navigator.push(
                                 context,
                                 PageRouteBuilder(
                                   pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: gameSession),
-                                  transitionsBuilder: (context, anim1, anim2, child) {
-                                    return FadeTransition(opacity: anim1, child: child);
-                                  },
+                                  transitionsBuilder: (context, anim1, anim2, child) => FadeTransition(opacity: anim1, child: child),
                                 ),
                               );
                             }
                           }
                         : null,
-                    child: const Text('SELECT TIPLU', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                    child: const Text('START NEW GAME', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                   ),
                 ),
               ],
@@ -689,7 +815,9 @@ child: Row(
   }
 }
 
+// ---------------------------------------------------------------------------
 // 2. Tiplu Selection Screen
+// ---------------------------------------------------------------------------
 class TipluSelectionScreen extends StatefulWidget {
   final GameSession gameSession;
   const TipluSelectionScreen({super.key, required this.gameSession});
@@ -733,9 +861,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                 tween: Tween<double>(begin: 0.85, end: 1.0),
                 duration: const Duration(milliseconds: 400),
                 curve: Curves.easeOutBack,
-                builder: (context, scale, child) {
-                  return Transform.scale(scale: scale, child: child);
-                },
+                builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
                 child: Container(
                   padding: const EdgeInsets.all(30),
                   decoration: BoxDecoration(
@@ -746,23 +872,15 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                     ),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: Colors.amberAccent.withOpacity(0.3)),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
                   ),
                   child: Column(
                     children: [
                       const Text('TIPLU CARD', style: TextStyle(color: Colors.white38, letterSpacing: 2, fontSize: 12)),
                       const SizedBox(height: 10),
-                      Text(
-                        selectedRank,
-                        style: const TextStyle(fontSize: 52, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
+                      Text(selectedRank, style: const TextStyle(fontSize: 52, fontWeight: FontWeight.bold, color: Colors.white)),
                       const SizedBox(height: 5),
-                      Text(
-                        selectedSuit,
-                        style: TextStyle(fontSize: 26, color: _getSuitColor(selectedSuit), fontWeight: FontWeight.w600),
-                      ),
+                      Text(selectedSuit, style: TextStyle(fontSize: 26, color: _getSuitColor(selectedSuit), fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -792,9 +910,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
                           gameSession: widget.gameSession,
                           tiplu: '$selectedRank of $selectedSuit',
                         ),
-                        transitionsBuilder: (context, anim1, anim2, child) {
-                          return FadeTransition(opacity: anim1, child: child);
-                        },
+                        transitionsBuilder: (context, anim1, anim2, child) => FadeTransition(opacity: anim1, child: child),
                       ),
                     );
                   },
@@ -828,9 +944,7 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
               dropdownColor: const Color(0xFF1E1B4B),
               icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFFC4B5FD)),
               style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w600),
-              items: items.map((item) {
-                return DropdownMenuItem(value: item, child: Text(item));
-              }).toList(),
+              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
               onChanged: onChanged,
             ),
           ),
@@ -840,7 +954,9 @@ class _TipluSelectionScreenState extends State<TipluSelectionScreen> {
   }
 }
 
-// 3. Maal Input Screen (Powered by House Rules)
+// ---------------------------------------------------------------------------
+// 3. Maal Input Screen (Marriage / Maal / Tiplu / Alter / Joker + Winner)
+// ---------------------------------------------------------------------------
 class MaalInputScreen extends StatefulWidget {
   final GameSession gameSession;
   final String tiplu;
@@ -852,10 +968,13 @@ class MaalInputScreen extends StatefulWidget {
 }
 
 class _MaalInputScreenState extends State<MaalInputScreen> {
+  String? _winnerName; // player who showed the cards
+
   @override
   Widget build(BuildContext context) {
     final players = widget.gameSession.players;
     final rules = widget.gameSession.houseRules;
+    final preview = _winnerName != null ? widget.gameSession.calculateRound(_winnerName!) : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('CHOOSE PLAYER MAAL')),
@@ -884,9 +1003,14 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Align(
+              Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Select what each player holds:', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                child: Text(
+                  'Mark the winner (showed cards) and what each player holds. '
+                  'Winner gets ${rules.winnerFullPoints} pts from players with no sequences, '
+                  '${rules.winnerReducedPoints} pts from players who showed sequences.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -896,63 +1020,104 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                     final player = players[index];
                     final avatar = availableAvatars[player.avatarIndex];
                     final maal = player.maal;
-                    final totalPts = maal.getTotalPoints(rules);
+                    final isWinner = _winnerName == player.name;
+                    final net = preview != null ? (preview[player.name] ?? 0) : maal.getTotalPoints(rules);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.06),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        border: Border.all(
+                          color: isWinner ? Colors.amber.withOpacity(0.6) : Colors.white.withOpacity(0.1),
+                          width: isWinner ? 1.5 : 1,
+                        ),
                       ),
                       child: Material(
                         color: Colors.transparent,
                         child: ExpansionTile(
+                          initiallyExpanded: index == 0,
                           collapsedIconColor: const Color(0xFFC4B5FD),
                           iconColor: const Color(0xFF34D399),
                           leading: CircleAvatar(
                             backgroundColor: avatar.color,
                             child: Icon(avatar.icon, color: Colors.white, size: 20),
                           ),
-                          title: Text(
-                            player.name,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  player.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ),
+                              if (isWinner) const Padding(
+                                padding: EdgeInsets.only(left: 6),
+                                child: Icon(Icons.emoji_events, color: Colors.amberAccent, size: 18),
+                              ),
+                            ],
                           ),
                           trailing: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF34D399).withOpacity(0.15),
+                              color: (net < 0 ? Colors.redAccent : const Color(0xFF34D399)).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF34D399).withOpacity(0.4)),
+                              border: Border.all(color: (net < 0 ? Colors.redAccent : const Color(0xFF34D399)).withOpacity(0.4)),
                             ),
                             child: Text(
-                              '$totalPts pts',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF34D399)),
+                              '${_signed(net)} pts',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: net < 0 ? Colors.redAccent : const Color(0xFF34D399),
+                              ),
                             ),
                           ),
                           children: [
                             Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Wrap(
-                                spacing: 8.0,
-                                runSpacing: 8.0,
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _buildChoiceChip('Marriage (${rules.marriagePoints}pts)', maal.hasMarriage, (val) {
-                                    setState(() => maal.hasMarriage = val);
-                                  }),
-                                  _buildChoiceChip('Tunnel/3-Pattia (${rules.tunnelPoints}pts)', maal.hasTunnel, (val) {
-                                    setState(() => maal.hasTunnel = val);
-                                  }),
-                                  _buildChoiceChip('Tiplu (${rules.tipluPoints}pts)', maal.hasTiplu, (val) {
-                                    setState(() => maal.hasTiplu = val);
-                                  }),
-                                  _buildChoiceChip('Alte (${rules.altePoints}pts)', maal.hasAlte, (val) {
-                                    setState(() => maal.hasAlte = val);
-                                  }),
-                                  _buildChoiceChip('Jhal (${rules.jhalPoints}pts)', maal.hasJhal, (val) {
-                                    setState(() => maal.hasJhal = val);
-                                  }),
+                                  Wrap(
+                                    spacing: 8.0,
+                                    runSpacing: 8.0,
+                                    children: [
+                                      _buildChip('Winner (showed)', isWinner, (val) {
+                                        setState(() => _winnerName = val ? player.name : null);
+                                      }, selectedColor: Colors.amber.shade700),
+                                      _buildChip('Showed sequences', maal.hasShownSequence, (val) {
+                                        setState(() => maal.hasShownSequence = val);
+                                      }),
+                                      _buildChip('Marriage (${rules.marriageHigh})', maal.hasMarriageHigh, (val) {
+                                        setState(() {
+                                          maal.hasMarriageHigh = val;
+                                          if (val) maal.hasMarriageLow = false;
+                                        });
+                                      }),
+                                      _buildChip('Marriage (${rules.marriageLow})', maal.hasMarriageLow, (val) {
+                                        setState(() {
+                                          maal.hasMarriageLow = val;
+                                          if (val) maal.hasMarriageHigh = false;
+                                        });
+                                      }),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildCounter('Maal', maal.maalCount, rules.maxMaal,
+                                      '${rules.maalPoints[maal.maalCount]} pts',
+                                      (v) => setState(() => maal.maalCount = v)),
+                                  _buildCounter('Tiplu', maal.tipluCount, 3,
+                                      '${maal.tipluCount * rules.tipluPerCard} pts',
+                                      (v) => setState(() => maal.tipluCount = v)),
+                                  _buildCounter('Alter', maal.alterCount, rules.maxAlter,
+                                      '${rules.alterPoints[maal.alterCount]} pts',
+                                      (v) => setState(() => maal.alterCount = v)),
+                                  _buildCounter('Joker', maal.jokerCount, rules.maxJoker,
+                                      '${rules.jokerPoints[maal.jokerCount]} pts',
+                                      (v) => setState(() => maal.jokerCount = v)),
                                 ],
                               ),
                             ),
@@ -977,10 +1142,13 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                     elevation: 0,
                   ),
                   onPressed: () async {
-                    Map<String, int> roundPoints = {};
-                    for (var p in players) {
-                      roundPoints[p.name] = p.maal.getTotalPoints(rules);
+                    if (_winnerName == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Select the winner (player who showed the cards) first.')),
+                      );
+                      return;
                     }
+                    final roundPoints = widget.gameSession.calculateRound(_winnerName!);
                     await widget.gameSession.recordRound(roundPoints);
 
                     if (context.mounted) {
@@ -991,9 +1159,7 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
                             gameSession: widget.gameSession,
                             tiplu: widget.tiplu,
                           ),
-                          transitionsBuilder: (context, anim1, anim2, child) {
-                            return FadeTransition(opacity: anim1, child: child);
-                          },
+                          transitionsBuilder: (context, anim1, anim2, child) => FadeTransition(opacity: anim1, child: child),
                         ),
                       );
                     }
@@ -1008,12 +1174,41 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
     );
   }
 
-  Widget _buildChoiceChip(String label, bool isSelected, ValueChanged<bool> onSelected) {
+  Widget _buildCounter(String label, int count, int max, String pointsText, ValueChanged<int> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(width: 60, child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 15))),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+            onPressed: count > 0 ? () => onChanged(count - 1) : null,
+          ),
+          SizedBox(
+            width: 24,
+            child: Text('$count',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF34D399)),
+            onPressed: count < max ? () => onChanged(count + 1) : null,
+          ),
+          const Spacer(),
+          Text(pointsText, style: const TextStyle(color: Color(0xFF34D399), fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChip(String label, bool isSelected, ValueChanged<bool> onSelected, {Color? selectedColor}) {
     return FilterChip(
       label: Text(label),
       selected: isSelected,
       onSelected: onSelected,
-      selectedColor: const Color(0xFF8B5CF6),
+      selectedColor: selectedColor ?? const Color(0xFF8B5CF6),
       checkmarkColor: Colors.white,
       backgroundColor: Colors.white.withOpacity(0.08),
       labelStyle: TextStyle(
@@ -1022,15 +1217,15 @@ class _MaalInputScreenState extends State<MaalInputScreen> {
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isSelected ? const Color(0xFFC4B5FD) : Colors.white.withOpacity(0.15),
-        ),
+        side: BorderSide(color: isSelected ? const Color(0xFFC4B5FD) : Colors.white.withOpacity(0.15)),
       ),
     );
   }
 }
 
-// 4. Score Summary Screen with Celebration, Pulse Animation, Undo, & History Table
+// ---------------------------------------------------------------------------
+// 4. Score Summary Screen
+// ---------------------------------------------------------------------------
 class ScoreSummaryScreen extends StatefulWidget {
   final GameSession gameSession;
   final String tiplu;
@@ -1049,15 +1244,10 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
   @override
   void initState() {
     super.initState();
-    _confettiController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..forward();
+    _confettiController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..forward();
 
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))
+      ..repeat(reverse: true);
 
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
@@ -1117,8 +1307,8 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
                               children: players.map((p) {
                                 int pts = roundData[p.name] ?? 0;
                                 return Text(
-                                  '${p.name}: +$pts',
-                                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                  '${p.name}: ${_signed(pts)}',
+                                  style: TextStyle(color: pts < 0 ? Colors.redAccent : Colors.white70, fontSize: 14),
                                 );
                               }).toList(),
                             ),
@@ -1137,6 +1327,42 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
         );
       },
     );
+  }
+
+  Future<void> _confirmNewGame() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1B4B),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('End this game?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Current scores will be cleared and you can start a new game with new players.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('End Game', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await GameSession.clearStorage();
+      if (!mounted) return;
+      // Remove every old screen and open a FRESH setup screen
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const GameSetupScreen()),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -1198,9 +1424,7 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 25, offset: const Offset(0, 10)),
-                        ],
+                        boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.4), blurRadius: 25, offset: const Offset(0, 10))],
                       ),
                       child: Column(
                         children: [
@@ -1214,12 +1438,9 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
                             ),
                           ),
                           const SizedBox(height: 10),
-                          Text(
-                            leader.name,
-                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
+                          Text(leader.name, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
                           const SizedBox(height: 4),
-                          const Text('ROUND LEADER', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
+                          const Text('LEADER', style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 8),
                           Text(
                             '${leader.cumulativeScore} Total Points',
@@ -1239,6 +1460,9 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
                         final player = sortedPlayers[index];
                         final avatar = availableAvatars[player.avatarIndex];
                         final isLeader = index == 0;
+                        final lastRound = widget.gameSession.roundHistory.isNotEmpty
+                            ? (widget.gameSession.roundHistory.last[player.name] ?? 0)
+                            : 0;
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
@@ -1261,6 +1485,10 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
                                   fontWeight: FontWeight.bold,
                                   fontSize: 18,
                                 ),
+                              ),
+                              subtitle: Text(
+                                'This round: ${_signed(lastRound)}',
+                                style: TextStyle(color: lastRound < 0 ? Colors.redAccent : Colors.white54, fontSize: 12),
                               ),
                               trailing: Text(
                                 '${player.cumulativeScore} pts',
@@ -1294,14 +1522,14 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
                               elevation: 0,
                             ),
                             onPressed: () {
-                              Navigator.pushReplacement(
+                              // Clear the old round screens so the stack doesn't keep growing
+                              Navigator.pushAndRemoveUntil(
                                 context,
                                 PageRouteBuilder(
                                   pageBuilder: (context, anim1, anim2) => TipluSelectionScreen(gameSession: widget.gameSession),
-                                  transitionsBuilder: (context, anim1, anim2, child) {
-                                    return FadeTransition(opacity: anim1, child: child);
-                                  },
+                                  transitionsBuilder: (context, anim1, anim2, child) => FadeTransition(opacity: anim1, child: child),
                                 ),
+                                (route) => false,
                               );
                             },
                             child: const Text('NEXT ROUND', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
@@ -1321,12 +1549,7 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
                             ),
                             elevation: 0,
                           ),
-                          onPressed: () async {
-                            await widget.gameSession.clearStorage();
-                            if (context.mounted) {
-                              Navigator.popUntil(context, (route) => route.isFirst);
-                            }
-                          },
+                          onPressed: _confirmNewGame,
                           child: const Text('NEW GAME', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
                         ),
                       ),
@@ -1342,7 +1565,9 @@ class _ScoreSummaryScreenState extends State<ScoreSummaryScreen> with TickerProv
   }
 }
 
-// Custom Painter for Particle/Confetti Burst Celebration Effect
+// ---------------------------------------------------------------------------
+// Confetti painter
+// ---------------------------------------------------------------------------
 class VictoryConfettiPainter extends CustomPainter {
   final double progress;
   VictoryConfettiPainter(this.progress);
