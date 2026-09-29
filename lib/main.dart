@@ -1610,6 +1610,7 @@ class _Particle {
   final double speedX;
   final double speedY;
 
+
   _Particle({
     required this.x,
     required this.y,
